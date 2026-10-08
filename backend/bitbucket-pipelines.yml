@@ -1,0 +1,24 @@
+image: atlassian/default-image:3
+definitions: 
+  steps:
+    - step: &deploy
+        name: sync code
+        script:
+          - pipe: atlassian/ssh-run:0.3.1
+            variables:
+              SSH_USER: '$ssh_user'
+              SERVER: '$ssh_host'
+              COMMAND: '$sync_command'
+              MODE: 'command'
+              DEBUG: 'true'
+
+pipelines:
+  branches:
+    master:
+      - step:
+          <<: *deploy
+          deployment: production
+    staging:
+      - step:
+          <<: *deploy
+          deployment: staging

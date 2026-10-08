@@ -1,0 +1,55 @@
+﻿<!doctype html>
+<html ng-app="app">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+
+    <link rel="stylesheet" href="../../dist/css/style.css">
+    <link rel="stylesheet" href="../../build/css/final-ed95a1f3fc.css">
+    <link rel='stylesheet' type='text/css' href='../../css?family=Source+Sans+Pro:300,400,600,700,300italic,400italic,600italic'>
+    <link href="../../css-1?family=Oswald:200,300,400,500,600,700|Raleway:100,100i,200,200i,300,300i,400,400i,500,500i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="../../ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css">
+    <!-- Ionicons -->
+    <link rel="stylesheet" href="../../ajax/libs/ionicons/2.0.1/css/ionicons.min.css">
+   <link rel="stylesheet" href="../../bootstrap/3.3.7/css/bootstrap.min.css">
+    <link rel="stylesheet" href="../../buttons/1.2.2/css/buttons.dataTables.min.css">
+    <link href="../../img/fevicon.png" rel="shortcut icon">
+  <script src="../../ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script src="../../bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCix326VJYzGXyMzF7_yTD_vbn5DBMHZL4&language=en"></script>
+        <!-- Removed by WebCopy --><!--<base href="/">--><!-- Removed by WebCopy -->
+
+        
+    <title ng-bind="(title|translate) +' | '+('My Account'|translate)">Home | My Account</title>
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <!-- <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCmDvAMjd4EXxt81__9uTd1DKVITX_4Y_g"
+  type="text/javascript"></script> -->
+</head>
+<body route-bodyclass="">
+    <div class="wrapper">
+        <div ui-view="layout"></div>
+        <div class="control-sidebar-bg"></div>
+    </div>
+     <script src="../../dist/js/api-check.js"></script>
+    <script>
+      // depending on how you're loading apiCheck, you may need to use AMD or CommonJS
+      // in this case, because it's a script tag, apiCheck is exposed globally
+      // also notice that I'm doing this as soon as I load the apiCheck script.
+      // you need to do this before you load angular-formly so angular-formly's
+      // initialization doesn't use apiCheck while it's enabled (perf).
+      apiCheck.globalConfig.disabled = true;
+      
+       var box_id ;         var box_base="/api/"  
+    </script>
+    <script src="../../dist/ckeditor/ckeditor.js"></script>
+    <script src="../../build/js/final-103dfc48c5.js" async="" defer=""></script>
+</body>
+</html>

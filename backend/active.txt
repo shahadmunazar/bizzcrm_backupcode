@@ -1,0 +1,303 @@
+     public function Leave_dataTransaction(Request $request)
+    {
+        try {
+            $userId  = Auth::id();
+            $boxUser = BoxUser::where('user_id', $userId)->first();
+
+            if (! $boxUser) {
+                // Check if DataTables request
+                if ($request->has('draw')) {
+                    return DataTables::of(collect([]))->make(true);
+                }
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Box user not found',
+                ], 404);
+            }
+
+            $boxId            = $boxUser->box_id;
+            $year             = $request->get('year', $request->get('year', now()->year));
+            $joiningDate      = Carbon::parse($boxUser->joining_date ?? now());
+            $currentYearStart = Carbon::create($year, 1, 1)->startOfMonth();
+            $currentYearEnd   = Carbon::create($year, 12, 31)->startOfMonth();
+
+            $eligibleMonthStart = $joiningDate->year == $year
+                ? Carbon::create($year, $joiningDate->month, 1)->startOfMonth()
+                : $currentYearStart;
+
+            $monthsEligible = $eligibleMonthStart->diffInMonths($currentYearEnd) + 1;
+
+            // Base query
+            $query = LeaveTransaction::with('leaveType')
+                ->where('box_user_id', $boxUser->id)
+                ->whereYear('date', $year);
+
+            // Apply date range filter
+            if ($request->filled('dateRange')) {
+                $dates = explode(' - ', $request->dateRange);
+                if (count($dates) === 2) {
+                    try {
+                        $startDate = Carbon::createFromFormat('d/m/Y', trim($dates[0]))->startOfDay();
+                        $endDate   = Carbon::createFromFormat('d/m/Y', trim($dates[1]))->endOfDay();
+                        $query->whereBetween('date', [$startDate, $endDate]);
+                    } catch (\Exception $e) {
+                        // Invalid date format, skip filter
+                    }
+                }
+            }
+
+            // Apply Leave Types filter
+            if ($request->filled('leaveTypes') && is_array($request->leaveTypes)) {
+                $query->whereHas('leaveType', function ($q) use ($request) {
+                    $q->whereIn('leave_type', $request->leaveTypes);
+                });
+            }
+
+            // Apply Credit/Debit filters
+            if ($request->filled('creditDebitFilters') && is_array($request->creditDebitFilters)) {
+                $filters = $request->creditDebitFilters;
+                $query->where(function ($q) use ($filters) {
+                    if (in_array('credit', $filters)) {
+                        $q->orWhere('credit_leave', '>', 0);
+                    }
+                    if (in_array('debit', $filters)) {
+                        $q->orWhere('debit_leave', '>', 0);
+                    }
+                });
+            }
+
+            // Check if this is a DataTables request
+            if ($request->has('draw')) {
+                // Return DataTables format
+                return DataTables::of($query)
+                    ->addIndexColumn()
+                    ->addColumn('formatted_date', function ($row) {
+                        return Carbon::parse($row->date)->format('d M Y');
+                    })
+                    ->addColumn('leave_type_name', function ($row) {
+                        return $row->leaveType?->leave_type ?? '-';
+                    })
+                    ->addColumn('formatted_credit', function ($row) {
+                        return (float) $row->credit_leave;
+                    })
+                    ->addColumn('formatted_debit', function ($row) {
+                        return (float) $row->debit_leave;
+                    })
+                    ->addColumn('formatted_balance', function ($row) {
+                        return (float) $row->balance_leave;
+                    })
+                    ->addColumn('lapsed_leave', function ($row) {
+                        return (float) $row->lapsed_leave;
+                    })
+                    ->addColumn('carried_forward_leave', function ($row) {
+                        return (float) $row->carried_forward_leave;
+                    })
+                    ->addColumn('transaction_type', function ($row) {
+                        if ($row->credit_leave > 0) {
+                            return 'credit';
+                        } elseif ($row->debit_leave > 0) {
+                            return 'debit';
+                        }
+                        return 'neutral';
+                    })
+                    ->rawColumns(['transaction_remarks'])
+                    ->orderColumn('formatted_date', function ($query, $order) {
+                        $query->orderBy('date', $order);
+                    })
+                    ->orderColumn('leave_type_name', function ($query, $order) {
+                        $query->orderBy('leave_type_id', $order);
+                    })
+                    ->filterColumn('leave_type_name', function ($query, $keyword) {
+                        $query->whereHas('leaveType', function ($q) use ($keyword) {
+                            $q->where('leave_type', 'like', "%{$keyword}%");
+                        });
+                    })
+                    ->filterColumn('formatted_date', function ($query, $keyword) {
+                        $query->whereRaw("DATE_FORMAT(date, '%d %b %Y') like ?", ["%{$keyword}%"]);
+                    })
+                    ->make(true);
+            }
+
+            // Regular request - return JSON with transactions and leave types
+            $transactions = $query
+                ->orderBy('leave_type_id', 'asc')
+                ->orderBy('date', 'desc')
+                ->orderBy('id', 'desc')
+                ->get()
+                ->map(function ($row) {
+                    return [
+                        'date'                => Carbon::parse($row->date)->format('d M Y'),
+                        'leave_type'          => $row->leaveType?->leave_type ?? '-',
+                        'credit_leave'        => $row->credit_leave,
+                        'opening_balance'     => $row->opening_balance,
+                        'transaction_remarks' => $row->transaction_remarks,
+                        'debit_leave'         => $row->debit_leave,
+                        'lapsed_leave'        => $row->lapsed_leave,
+                        'carried_forward_leave' => $row->carried_forward_leave,
+                        'balance_leave'       => $row->balance_leave,
+                    ];
+                });
+
+            $transactionsByYear = [$year => $transactions];
+
+            // Pre-fetch leave requests grouped by leave_type_id for efficiency
+            $leaveRequestsGrouped = LeaveRequest::where('box_user_id', $boxUser->id)
+                ->whereIn('status', ['approved', 'pending'])
+                ->whereYear('from_date', $year)
+                ->get()
+                ->groupBy('leave_type');
+
+            // Get latest balance from transactions for each leave type
+            $latestBalances = LeaveTransaction::where('box_user_id', $boxUser->id)
+                ->whereYear('date', $year)
+                ->get()
+                ->groupBy('leave_type_id')
+                ->map(function ($transactions) {
+                    return $transactions->sortByDesc('date')->sortByDesc('id')->first()->balance_leave ?? 0;
+                });
+
+            $leaveTypes = LeaveType::where('box_id', $boxId)
+                ->where('status', 'Active')
+                ->orderBy('id', 'asc')  // Order by ID to match processing order
+                ->get()
+                ->map(function ($type) use ($monthsEligible, $leaveRequestsGrouped, $latestBalances) {
+                    $totalCreditable = 0;
+                    if (strtolower($type->credit_frequency) == 'monthly') {
+                        $totalCreditable = round($monthsEligible * (float) $type->credit_days, 2);
+                    }
+
+                    $leavesTaken = 0;
+                    if (isset($leaveRequestsGrouped[$type->id])) {
+                        $leavesTaken = $leaveRequestsGrouped[$type->id]->sum('total_days'); // Correct field here
+                    }
+
+                    // Use actual balance from latest transaction, fallback to calculation
+                    $balanceLeave = $latestBalances->get($type->id) ?? ($totalCreditable - $leavesTaken);
+
+                    return [
+                        'id'                    => $type->id,
+                        'box_id'                => $type->box_id,
+                        'leave_type'            => $type->leave_type,
+                        'credit_frequency'      => $type->credit_frequency,
+                        'credit_days'           => $type->credit_days,
+                        'number_of_days'        => $type->number_of_days,
+                        'leave_code'            => $type->leave_code,
+                        'leave_color'           => $type->leave_color,
+                        'leave_icon'            => $type->leave_icon,
+                        'leave_credit_type'     => $type->leave_credit_type,
+                        'carry_forward'         => $type->carry_forward,
+                        'carry_forward_days'    => $type->carry_forward_days,
+                        'status'                => $type->status,
+                        'months_eligible'       => $monthsEligible,
+                        'total_creditable_days' => $totalCreditable,
+                        'leaves_taken'          => $leavesTaken,
+                        'balance_leave'         => $balanceLeave,
+                    ];
+                });
+
+            // Get all available years from database for this box_user (based on date field)
+            $availableYears = LeaveTransaction::where('box_user_id', $boxUser->id)
+                ->whereNotNull('date')
+                ->selectRaw('YEAR(date) as year')
+                ->distinct()
+                ->orderBy('year', 'desc')
+                ->pluck('year')
+                ->toArray();
+
+            // If no transactions exist, include current year
+            if (empty($availableYears)) {
+                $availableYears = [now()->year];
+            }
+
+            // Check if request is to fetch all years data in one call
+            if ($request->get('fetch_all_years') == 'true') {
+                $allTransactionsByYear = [];
+                $allLeaveTypes = [];
+
+                // Fetch data for all available years
+                foreach ($availableYears as $yr) {
+                    $yearQuery = LeaveTransaction::with('leaveType')
+                        ->where('box_user_id', $boxUser->id)
+                        ->whereYear('date', $yr)
+                        ->orderBy('leave_type_id', 'asc')
+                        ->orderBy('date', 'desc')
+                        ->orderBy('id', 'desc')
+                        ->get()
+                        ->map(function ($row) {
+                            return [
+                                'date'                => Carbon::parse($row->date)->format('d M Y'),
+                                'leave_type'          => $row->leaveType?->leave_type ?? '-',
+                                'credit_leave'        => $row->credit_leave,
+                                'opening_balance'     => $row->opening_balance,
+                                'transaction_remarks' => $row->transaction_remarks,
+                                'debit_leave'         => $row->debit_leave,
+                                'balance_leave'       => $row->balance_leave,
+                            ];
+                        });
+
+                    $allTransactionsByYear[$yr] = $yearQuery;
+                }
+
+                // Get leave types (same for all years)
+                $allLeaveTypes = LeaveType::where('box_id', $boxId)
+                    ->where('status', 'Active')
+                    ->orderBy('id', 'asc')
+                    ->get()
+                    ->map(function ($type) use ($boxUser) {
+                        $currentYear = now()->year;
+                        $joiningDate = Carbon::parse($boxUser->joining_date ?? now());
+                        $currentYearStart = Carbon::create($currentYear, 1, 1)->startOfMonth();
+                        $currentYearEnd = Carbon::create($currentYear, 12, 31)->startOfMonth();
+                        $eligibleMonthStart = $joiningDate->year == $currentYear
+                            ? Carbon::create($currentYear, $joiningDate->month, 1)->startOfMonth()
+                            : $currentYearStart;
+                        $monthsEligible = $eligibleMonthStart->diffInMonths($currentYearEnd) + 1;
+
+                        $totalCreditable = 0;
+                        if (strtolower($type->credit_frequency) == 'monthly') {
+                            $totalCreditable = round($monthsEligible * (float) $type->credit_days, 2);
+                        }
+
+                        return [
+                            'id'                    => $type->id,
+                            'box_id'                => $type->box_id,
+                            'leave_type'            => $type->leave_type,
+                            'credit_frequency'      => $type->credit_frequency,
+                            'credit_days'           => $type->credit_days,
+                            'number_of_days'        => $type->number_of_days,
+                            'leave_code'            => $type->leave_code,
+                            'leave_color'           => $type->leave_color,
+                            'leave_icon'            => $type->leave_icon,
+                            'leave_credit_type'     => $type->leave_credit_type,
+                            'carry_forward'         => $type->carry_forward,
+                            'carry_forward_days'    => $type->carry_forward_days,
+                            'status'                => $type->status,
+                            'months_eligible'       => $monthsEligible,
+                            'total_creditable_days' => $totalCreditable,
+                        ];
+                    });
+
+                return response()->json([
+                    'status'            => true,
+                    'leaveTransactions' => $allTransactionsByYear, // All years data
+                    'leaveTypes'        => $allLeaveTypes,
+                    'availableYears'    => $availableYears,
+                    'currentYear'       => now()->year, // Return current year for default expansion
+                ]);
+            }
+
+            return response()->json([
+                'status'            => true,
+                'leaveTransactions' => $transactionsByYear,
+                'leaveTypes'        => $leaveTypes,
+                'availableYears'    => $availableYears, // Return all years that have data in database
+            ]);
+
+        } catch (\Throwable $th) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Something went wrong while fetching leave transactions.',
+                'error'   => $th->getMessage(),
+            ], 500);
+        }
+    }

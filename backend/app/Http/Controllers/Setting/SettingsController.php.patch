@@ -1,0 +1,29 @@
+--- backend/app/Http/Controllers/Setting/SettingsController.php
++++ backend/app/Http/Controllers/Setting/SettingsController.php
+@@ -3574,4 +3574,27 @@
+         ]);
+     }
++
++    public function storeRole(Request $request)
++    {
++        $user = Auth::user();
++        $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
++        $boxUser = $this->box ? BoxUser::where('user_id', $user->id)->where('box_id', $this->box->id)->first() : null;
++        $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
++
++        if (!($isGlobalAdmin || $isBoxAdmin)) {
++            return response()->json(['success' => false, 'message' => 'Unauthorized to create roles.'], 403);
++        }
++
++        $request->validate([
++            'name' => 'required|string|max:255|unique:roles,name',
++        ]);
++
++        \Spatie\Permission\Models\Role::create([
++            'name' => strtolower(str_replace(' ', '_', $request->name)),
++            'guard_name' => 'web'
++        ]);
++
++        return response()->json(['success' => true, 'message' => 'Role created successfully.']);
++    }
+ }

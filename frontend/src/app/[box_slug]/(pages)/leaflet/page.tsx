@@ -1,0 +1,8 @@
+export default function LeafletPage() {
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Leaflet</h1>
+      <p className="text-muted-foreground">This is a sample placeholder page for Leaflet. Replace this with the actual component.</p>
+    </div>
+  )
+}

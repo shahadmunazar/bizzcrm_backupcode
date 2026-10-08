@@ -1,0 +1,46 @@
+/* Hover Effect for Table Cell Content */
+#leads_lists tbody tr td .lead-clickable-content:hover {
+    text-decoration: underline;
+    color: #E41F07;
+    cursor: pointer;
+}
+
+/* Exclude Checkbox Column from Link Styles */
+#leads_lists tbody tr td:first-child {
+    cursor: default;
+}
+
+
+/* Drag and Drop Styles for Lead Forms */
+.sortable-container {
+    min-height: 100px;
+}
+
+.sortable-fallback {
+    opacity: 0.8 !important;
+    background-color: #f8f9fa !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+}
+
+/* Team Member Hierarchy Styles */
+.hierarchy-level-0 { font-weight: bold; background-color: #f8f9fa; }
+.hierarchy-level-1 { padding-left: 20px; }
+.hierarchy-level-2 { padding-left: 40px; }
+.hierarchy-level-3 { padding-left: 60px; }
+.hierarchy-level-4 { padding-left: 80px; }
+
+#multi_action_modal.non-blocking-modal {
+    pointer-events: none;
+    background: rgba(0,0,0,0);
+}
+#multi_action_modal.non-blocking-modal .modal-dialog {
+    pointer-events: auto;
+    margin-top: 10%; 
+}
+#multi_action_modal.non-blocking-modal .modal-backdrop {
+    display: none;
+}
+.bulk-action-check:checked { 
+    background-color: #dc3545; 
+    border-color: #dc3545;
+}

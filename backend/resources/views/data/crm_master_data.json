@@ -1,0 +1,140 @@
+{
+    "call_reason": [
+        {
+            "name": "Busy",
+            "status": "1"
+        },
+        {
+            "name": "No Answer",
+            "status": "1"
+        },
+        {
+            "name": "Wrong Number",
+            "status": "1"
+        },
+        {
+            "name": "Unavailable",
+            "status": "1"
+        }
+    ],
+    "industry": [
+        {
+            "name": "Retail Industry",
+            "status": "1"
+        },
+        {
+            "name": "Banking",
+            "status": "1"
+        },
+        {
+            "name": "Hotels",
+            "status": "1"
+        },
+        {
+            "name": "Financial Services",
+            "status": "1"
+        },
+        {
+            "name": "Insurance",
+            "status": "1"
+        },
+        {
+            "name": "Consulting",
+            "status": "1"
+        },
+        {
+            "name": "Agriculture",
+            "status": "1"
+        }
+    ],
+    "contact_stage": [
+        {
+            "name": "Contacted",
+            "status": "Active"
+        },
+        {
+            "name": "Not Contacted",
+            "status": "1"
+        },
+        {
+            "name": "Closed",
+            "status": "1"
+        },
+        {
+            "name": "Lost",
+            "status": "1"
+        }
+    ],
+    "lost_reason": [
+        {
+            "name": "Client went silent",
+            "status": "1"
+        },
+        {
+            "name": "Don't have the budget",
+            "status": "1"
+        },
+        {
+            "name": "Doesn't pick up the phone, doesn't respond",
+            "status": "1"
+        },
+        {
+            "name": "Lack of expertise",
+            "status": "1"
+        },
+        {
+            "name": "Not responsible",
+            "status": "1"
+        },
+        {
+            "name": "They couldn't afford our services",
+            "status": "1"
+        },
+        {
+            "name": "Went with our competitor",
+            "status": "1"
+        }
+    ],
+    "source": [
+        {
+            "name": "Phone Calls",
+            "status": "0"
+        },
+        {
+            "name": "Social Media",
+            "status": "1"
+        },
+        {
+            "name": "Referral Sites",
+            "status": "1"
+        },
+        {
+            "name": "Web Analytics",
+            "status": "1"
+        },
+        {
+            "name": "Previous Purchases",
+            "status": "1"
+        },
+        {
+            "name": "Lead & Opportunity",
+            "status": "1"
+        },
+        {
+            "name": "Image-based Features",
+            "status": "1"
+        },
+        {
+            "name": "Bots",
+            "status": "1"
+        },
+        {
+            "name": "Insights",
+            "status": "1"
+        },
+        {
+            "name": "Commerce",
+            "status": "1"
+        }
+    ]
+}
