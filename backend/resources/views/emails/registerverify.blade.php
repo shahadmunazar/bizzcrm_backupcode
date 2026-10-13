@@ -12,7 +12,7 @@
         <p><strong>Token Expiry:</strong> {{ $tokenExpiresAt ? \Carbon\Carbon::parse($tokenExpiresAt)->format('d M Y, h:i A') : 'N/A' }}</p>
     </div>
     <div style="text-align:center; margin:30px 0;">
-        <a href="{{ env('FRONTEND_URL', 'http://localhost:3001') }}/pages/auth/verify-email/{{ $remember_token }}"
+        <a href="{{ route('verify.email', ['token' => $remember_token]) }}"
            style="background:{{ env('APP_THEME_COLOR', '#E41F07') }}; color:#fff; padding:14px 28px; text-decoration:none; border-radius:5px; font-size:16px; font-weight:bold; display:inline-block;">
             Verify My Email
         </a>

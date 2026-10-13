@@ -9,7 +9,7 @@
     <table cellpadding="0" cellspacing="0" width="100%" style="margin: 30px 0;">
         <tr>
             <td align="center">
-                <a href="{{ env('FRONTEND_URL', 'http://localhost:3001') }}/pages/auth/reset-password?token={{ $token }}&email={{ urlencode($email) }}"
+                <a href="{{ route('forget.page', ['token' => $token]) }}?email={{ urlencode($email) }}"
                    style="display: inline-block; padding: 12px 24px; background-color: {{ env('APP_THEME_COLOR', '#E41F07') }}; color: #fff; text-decoration: none; font-weight: bold; border-radius: 5px;">
                     Reset Password
                 </a>

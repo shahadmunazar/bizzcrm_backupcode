@@ -811,10 +811,10 @@
             </li>
             <!-- /Chat -->
              
-            <!-- Chat / Leads Notifications -->
+            <!-- Leads Notifications -->
             <li class="nav-item dropdown nav-item-box">
-                <a href="javascript:void(0);" class="nav-link" data-bs-toggle="dropdown" onclick="fetchLeadNotifications()">
-                    <i class="ti ti-message-dots"></i>
+                <a href="javascript:void(0);" class="nav-link" data-toggle="tooltip" title="Starred Lead Alerts" data-bs-toggle="dropdown" onclick="fetchLeadNotifications()">
+                    <i class="ti ti-star"></i>
                     <span class="badge rounded-pill lead-notification-count" style="display: none;">0</span>
                 </a>
                 <div class="dropdown-menu dropdown-menu-end notification-dropdown">
@@ -898,7 +898,7 @@
                         // Check type to categorize
                         if (item.type.includes('TaskAssignedNotification') || item.type.includes('ExportReadyNotification') || item.type.includes('MissedPunchOutNotification') || item.type.includes('GeneralNotification')) {
                             taskCount++;
-                        } else if (item.type.includes('NewLeadNotification')) {
+                        } else if (item.type.includes('NewLeadNotification') || item.type.includes('LeadActivityNotification')) {
                             leadCount++;
                         } else if (item.type.includes('WhatsAppMessageNotification')) {
                             whatsappCount++;
@@ -1328,6 +1328,11 @@
                                 @endif
                             @endif
                         </div>
+                        @if(session()->has('impersonated_by'))
+                            <a class="dropdown-item text-danger fw-bold bg-soft-danger" href="{{ route('superadmin.company.leave-impersonation', ['box_slug' => request()->route('box_slug') ?? 'demobizzcom']) }}">
+                                <i class="ti ti-arrow-back-up"></i> Return to Superadmin
+                            </a>
+                        @endif
                         <a class="dropdown-item" href="{{ Auth::user()->hasRole('superadmin') ? box_route('superadmin.dashboard') : box_route('employee.dashboard') }}">
                             <i class="ti ti-layout-2"></i> Dashboard
                         </a>

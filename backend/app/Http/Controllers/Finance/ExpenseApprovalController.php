@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Finance;
 use App\Http\Controllers\Controller;
 use App\Models\Expense;
 use App\Models\Box;
+use App\Models\ExpenseApprovalRule;
+use App\Models\ExpenseApproval;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use App\Services\Finance\ExpenseApprovalService;
 
@@ -19,6 +22,21 @@ class ExpenseApprovalController extends Controller
 
     public function __construct(ExpenseApprovalService $approvalService)
     {
+        $this->middleware(function ($request, $next) {
+            $user = \Illuminate\Support\Facades\Auth::user();
+            if (!$user) return $next($request);
+
+            $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
+            $boxUser = \App\Models\BoxUser::where('user_id', $user->id)->first();
+            $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
+
+            if (!($isGlobalAdmin || $isBoxAdmin || \App\Helpers\PermissionHelper::hasModulePermission('finance_approvals', 'read'))) {
+                abort(403, 'You do not have permission to access this module.');
+            }
+
+            return $next($request);
+        });
+
         $this->approvalService = $approvalService;
     }
 
@@ -65,6 +83,15 @@ class ExpenseApprovalController extends Controller
      */
     public function store(Request $request, $box_slug, Expense $expense)
     {
+        $user = auth()->user();
+        $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
+        $boxUser = \App\Models\BoxUser::where('user_id', $user->id)->first();
+        $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
+
+        if (!($isGlobalAdmin || $isBoxAdmin || \App\Helpers\PermissionHelper::hasModulePermission('finance_approvals', 'approve'))) {
+            return response()->json(['success' => false, 'message' => 'You do not have permission to approve expenses.'], 403);
+        }
+
         $box = Box::where('slug', $box_slug)->firstOrFail();
 
         $validated = $request->validate([
@@ -91,18 +118,22 @@ class ExpenseApprovalController extends Controller
         $requiredRoles = $rule ? ($rule->required_roles ?? []) : [];
         $matchingRoles = array_intersect($userRoles, $requiredRoles);
 
-        if (!$rule || empty($matchingRoles)) {
-            return response()->json(['success' => false, 'message' => 'You are not authorized to process this expense amount.'], 403);
+        if (!$isGlobalAdmin && !$isBoxAdmin) {
+            if (!$rule || empty($matchingRoles)) {
+                return response()->json(['success' => false, 'message' => 'You are not authorized to process this expense amount.'], 403);
+            }
         }
 
-        DB::transaction(function() use ($expense, $validated, $user, $matchingRoles) {
+        $roleApprovedAs = ($isGlobalAdmin || $isBoxAdmin) ? 'admin' : current($matchingRoles);
+
+        DB::transaction(function() use ($expense, $validated, $user, $roleApprovedAs) {
             $expense->status = $validated['status'];
             $expense->save();
 
             ExpenseApproval::create([
                 'expense_id' => $expense->id,
                 'approver_id' => $user->id,
-                'role_approved_as' => current($matchingRoles), // taking the first matching role
+                'role_approved_as' => $roleApprovedAs,
                 'status' => $validated['status'],
                 'comment' => $validated['comment'] ?? null,
             ]);

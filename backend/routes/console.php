@@ -27,7 +27,8 @@ Schedule::command('whatsapp:sync-templates')->everyMinute()->withoutOverlapping(
 Schedule::command('whatsapp:process-campaigns')->everyMinute()->withoutOverlapping()->runInBackground();
 Schedule::command('facebook:sync-leads')->everyMinute()->withoutOverlapping()->onOneServer()->runInBackground();
 Schedule::job(new \App\Jobs\ProcessAccountDeletion)->dailyAt('01:00');
-// Schedule::command('leads:generate-dummy')->everyMinute()->withoutOverlapping()->runInBackground();
+
+Schedule::command('shifts:create-standard')->everyMinute()->withoutOverlapping()->runInBackground(); //for standard shift create
 // Schedule::command('call-logs:generate-random')->everyMinute()->withoutOverlapping()->runInBackground();
 
 // Schedule::command('db:seed --class=PlanSeeder')
@@ -44,7 +45,23 @@ Schedule::job(new \App\Jobs\ProcessAccountDeletion)->dailyAt('01:00');
 //     ->withoutOverlapping()
 //     ->runInBackground();
 
-// Schedule::command('db:seed --class=CompaniesDataSeeder')
-//     ->everyMinute()
-//     ->withoutOverlapping()
-//     ->runInBackground();
+
+    // Schedule::command('db:seed --class=PermissionsTableSeeder')
+    // ->everyMinute()
+    // ->withoutOverlapping()
+    // ->runInBackground();
+
+// Schedule::command('employees:backfill')
+// ->everyMinute()
+// ->withoutOverlapping()
+// ->runInBackground();
+
+// Schedule::command('db:seed --class=LeaveTypeSeeder')
+// ->everyMinute()
+// ->withoutOverlapping()
+// ->runInBackground();
+
+// Schedule::command('db:seed --class=IndianHolidaysSeeder')
+// ->everyMinute()
+// ->withoutOverlapping()
+// ->runInBackground();

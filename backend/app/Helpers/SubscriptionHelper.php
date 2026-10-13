@@ -10,6 +10,15 @@ use Carbon\Carbon;
 
 class SubscriptionHelper
 {
+    protected static $cachedFeatures = null;
+    protected static $cachedActiveWaSubscription = null;
+
+    public static function clearCache()
+    {
+        self::$cachedFeatures = null;
+        self::$cachedActiveWaSubscription = null;
+    }
+
     /**
      * Get the current active box context.
      */
@@ -152,6 +161,10 @@ class SubscriptionHelper
 
     public static function getCombinedFeatures($user = null)
     {
+        if (self::$cachedFeatures !== null) {
+            return self::$cachedFeatures;
+        }
+
         $subscriptions = self::getAllActiveSubscriptions($user);
         $baseSub = null;
         $additionalPlans = [];
@@ -196,6 +209,8 @@ class SubscriptionHelper
             }
         }
 
+        
+        self::$cachedFeatures = $combinedFeatures;
         return $combinedFeatures;
     }
 
@@ -216,9 +231,47 @@ class SubscriptionHelper
             $value = $features[$featureName];
             if (is_numeric($value) && $value > 0) return true;
             if ($value === true) return true;
+            if (is_string($value)) {
+                $valLower = strtolower(trim($value));
+                if (in_array($valLower, ['❌', 'no', 'unchecked', 'false', '0'])) {
+                    return false;
+                }
+                // Features like '2 APIs Included', '5 APIs', 'Unlimited APIs' mean the feature is available
+                if (str_contains($valLower, 'included') || str_contains($valLower, 'unlimited') || str_contains($valLower, 'api')) {
+                    return true;
+                }
+            }
         }
 
         return false;
+    }
+
+    /**
+     * Get numeric limit for a feature (e.g. No of Users: 3, Lead Integration: 2, Unlimited: 999999).
+     */
+    public static function getFeatureLimit(string $featureName, $default = 0): int
+    {
+        $user = Auth::user();
+        if (!$user) return $default;
+
+        if ($user->hasRole('superadmin') || $user->id == 1) return 999999;
+
+        $features = self::getCombinedFeatures($user);
+        if (!isset($features[$featureName])) return $default;
+
+        $val = $features[$featureName];
+        if (is_numeric($val)) return (int)$val;
+
+        $valLower = strtolower((string)$val);
+        if (str_contains($valLower, 'unlimited')) {
+            return 999999;
+        }
+
+        if (preg_match('/(\d+)/', (string)$val, $matches)) {
+            return (int)$matches[1];
+        }
+
+        return $default;
     }
 
     /**

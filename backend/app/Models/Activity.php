@@ -75,9 +75,11 @@ class Activity extends Model implements AuditableContract
 
         if ($this->type === 'history') {
             $addedByName = $this->addedByUser ? $this->addedByUser->name : 'System';
-            return '<span class="text-primary fw-bold">' . $addedByName . '</span> made some changes';
+            return $addedByName . ' made some changes';
         }
 
+
+        
         $addedByName = $this->addedByUser ? $this->addedByUser->name : 'Unknown';
         
         $typeName = $this->type ? $this->type : '';
@@ -115,6 +117,19 @@ class Activity extends Model implements AuditableContract
         }
 
         return $constructedSubject;
+    }
+
+    /**
+     * Strip HTML tags from description.
+     */
+    public function getDescriptionAttribute($value)
+    {
+        if (empty($value)) {
+            return $value;
+        }
+        
+        // Strip HTML tags and decode HTML entities (like &nbsp;)
+        return html_entity_decode(strip_tags($value));
     }
 
     // Relationships

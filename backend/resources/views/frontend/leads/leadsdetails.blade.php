@@ -360,10 +360,10 @@
 										<a href="{{ box_route('accounts.ledger.show', ['lead_id' => $lead->id]) }}" class="btn btn-primary w-100 h-100 py-2 px-1 fw-medium" style="font-size: 11px;">Ledger {{ $lead->company_name ?? '' }}</a>
 									</div>
 									<div class="col-6">
-										<a href="javascript:void(0);" data-bs-toggle="offcanvas" data-bs-target="#offcanvas_add_invoice" class="btn btn-primary w-100 h-100 py-2 px-1 fw-medium" style="font-size: 11px;">Create Invoice</a>
+										<a href="javascript:void(0);" data-bs-toggle="offcanvas" data-bs-target="#offcanvas_add_invoice" data-invoice-type="invoice" class="btn btn-primary w-100 h-100 py-2 px-1 fw-medium btn-add-invoice-trigger" style="font-size: 11px;">Create Invoice</a>
 									</div>
 									<div class="col-6">
-										<a href="javascript:void(0);" data-bs-toggle="offcanvas" data-bs-target="#offcanvas_add_invoice" class="btn btn-primary w-100 h-100 py-2 px-1 fw-medium" style="font-size: 11px;">Create Performa Invoice</a>
+										<a href="javascript:void(0);" data-bs-toggle="offcanvas" data-bs-target="#offcanvas_add_invoice" data-invoice-type="performa" class="btn btn-primary w-100 h-100 py-2 px-1 fw-medium btn-add-invoice-trigger" style="font-size: 11px;">Create Performa Invoice</a>
 									</div>
 								</div>
 
@@ -414,6 +414,12 @@
 									</li>
 									<li class="nav-item" role="presentation">
 										<a href="#" data-bs-toggle="tab" data-bs-target="#assignment_history" class="nav-link"><i class="ti ti-history me-1"></i>Assignment History</a>
+									</li>
+									<li class="nav-item" role="presentation">
+										<a href="#" data-bs-toggle="tab" data-bs-target="#invoices_history" class="nav-link"><i class="ti ti-file-invoice me-1"></i>Invoices</a>
+									</li>
+									<li class="nav-item" role="presentation">
+										<a href="#" data-bs-toggle="tab" data-bs-target="#proforma_invoices_history" class="nav-link"><i class="ti ti-file-invoice me-1"></i>Proforma Invoices</a>
 									</li>
 									<li class="nav-item" role="presentation">
 										<a href="#" data-bs-toggle="tab" data-bs-target="#receipts_history" class="nav-link"><i class="ti ti-receipt me-1"></i>Receipt History</a>
@@ -730,6 +736,82 @@
 								</div>
 							</div>
 							<!-- /Assignment History -->
+
+							<!-- Invoices History -->
+							<div class="tab-pane fade" id="invoices_history">
+								<div class="card">
+									<div class="card-header d-flex align-items-center justify-content-between flex-wrap row-gap-3">
+										<h4 class="fw-semibold">Invoices</h4>
+									</div>
+									<div class="card-body p-0">
+										<div class="table-responsive custom-table">
+											<table class="table datatable" id="invoices-datatable">
+												<thead class="thead-light">
+													<tr>
+														<th class="no-sort">
+															<label class="checkboxs"><input type="checkbox"><span class="checkmarks"></span></label>
+														</th>
+														<th></th>
+														<th>Invoice ID</th>
+														<th>Client</th>
+														<th>Project</th>
+														<th>Products</th>
+														<th>Created Date</th>
+														<th>Due Date</th>
+														<th>Amount</th>
+														<th>Paid Amount</th>
+														<th>Balance Amount</th>
+														<th>Status</th>
+														<th class="text-end">Action</th>
+													</tr>
+												</thead>
+												<tbody id="invoices-table-body">
+													<!-- Invoices list loaded via AJAX -->
+												</tbody>
+											</table>
+										</div>
+									</div>
+								</div>
+							</div>
+							<!-- /Invoices History -->
+
+							<!-- Proforma Invoices History -->
+							<div class="tab-pane fade" id="proforma_invoices_history">
+								<div class="card">
+									<div class="card-header d-flex align-items-center justify-content-between flex-wrap row-gap-3">
+										<h4 class="fw-semibold">Proforma Invoices</h4>
+									</div>
+									<div class="card-body p-0">
+										<div class="table-responsive custom-table">
+											<table class="table datatable" id="proforma-invoices-datatable">
+												<thead class="thead-light">
+													<tr>
+														<th class="no-sort">
+															<label class="checkboxs"><input type="checkbox"><span class="checkmarks"></span></label>
+														</th>
+														<th></th>
+														<th>Invoice ID</th>
+														<th>Client</th>
+														<th>Project</th>
+														<th>Products</th>
+														<th>Created Date</th>
+														<th>Due Date</th>
+														<th>Amount</th>
+														<th>Paid Amount</th>
+														<th>Balance Amount</th>
+														<th>Status</th>
+														<th class="text-end">Action</th>
+													</tr>
+												</thead>
+												<tbody id="proforma-invoices-table-body">
+													<!-- Invoices list loaded via AJAX -->
+												</tbody>
+											</table>
+										</div>
+									</div>
+								</div>
+							</div>
+							<!-- /Proforma Invoices History -->
 
 							<!-- Receipts History -->
 							<div class="tab-pane fade" id="receipts_history">
@@ -4671,6 +4753,12 @@
                     if ($('#wapp').hasClass('active') || $('.nav-link[data-bs-target="#wapp"]').hasClass('active')) {
                         loadActivitiesForLead('whatsapp', '#whatsapp-container');
                     } 
+                    if ($('#invoices_history').hasClass('active') || $('.nav-link[data-bs-target="#invoices_history"]').hasClass('active')) {
+                        loadInvoices('invoice', '#invoices-table-body', '#invoices-datatable');
+                    }
+                    if ($('#proforma_invoices_history').hasClass('active') || $('.nav-link[data-bs-target="#proforma_invoices_history"]').hasClass('active')) {
+                        loadInvoices('performa', '#proforma-invoices-table-body', '#proforma-invoices-datatable');
+                    }
                     if ($('#receipts_history').hasClass('active') || $('.nav-link[data-bs-target="#receipts_history"]').hasClass('active')) {
                         loadReceiptsForLead();
                     }
@@ -5064,6 +5152,11 @@
                         dynamicSubject = activity.type.charAt(0).toUpperCase() + activity.type.slice(1);
                     }
                 }
+                // Add HTML styling to 'made some changes' text if it doesn't already have it
+                if (dynamicSubject && typeof dynamicSubject === 'string' && dynamicSubject.endsWith(' made some changes') && !dynamicSubject.includes('<span class="text-primary')) {
+                    let namePart = dynamicSubject.replace(' made some changes', '');
+                    dynamicSubject = '<span class="text-primary fw-bold">' + namePart + '</span> made some changes';
+                }
 
                 if (activity.created_from === 'app') {
                     dynamicSubject += ' <span class="badge bg-primary-subtle text-primary ms-1" style="font-size: 10px;">Created via App</span>';
@@ -5313,6 +5406,10 @@
                 loadActivitiesForLead('whatsapp', '#whatsapp-container');
             } else if (target === '#general') {
                 loadActivitiesForLead('general', '#general-container');
+            } else if (target === '#invoices_history') {
+                loadInvoices('invoice', '#invoices-table-body', '#invoices-datatable');
+            } else if (target === '#proforma_invoices_history') {
+                loadInvoices('performa', '#proforma-invoices-table-body', '#proforma-invoices-datatable');
             } else if (target === '#receipts_history') {
                 loadReceiptsForLead();
             }
@@ -5341,6 +5438,12 @@
             }
             else if ($('#general').hasClass('active') || $('.nav-link[data-bs-target="#general"]').hasClass('active')) {
                 loadActivitiesForLead('general', '#general-container');
+            }
+            else if ($('#invoices_history').hasClass('active') || $('.nav-link[data-bs-target="#invoices_history"]').hasClass('active')) {
+                loadInvoices('invoice', '#invoices-table-body', '#invoices-datatable');
+            }
+            else if ($('#proforma_invoices_history').hasClass('active') || $('.nav-link[data-bs-target="#proforma_invoices_history"]').hasClass('active')) {
+                loadInvoices('performa', '#proforma-invoices-table-body', '#proforma-invoices-datatable');
             }
             else if ($('#receipts_history').hasClass('active') || $('.nav-link[data-bs-target="#receipts_history"]').hasClass('active')) {
                 loadReceiptsForLead();
@@ -5845,7 +5948,7 @@
 @include('frontend.employess.components.designation_tree_modal')
 @include('frontend.leads.partials.add_lead_form_js')
 @include('accounts.partials.add_invoice_modal', ['prefill_lead' => $lead])
-@include('accounts.partials.invoice_scripts', ['onSuccess' => 'window.location.reload();'])
+@include('accounts.partials.invoice_scripts', ['onSuccess' => 'window.location.reload();', 'lead_id' => $lead->id])
 
 @endsection
 
@@ -5875,6 +5978,10 @@
             loadActivitiesForLead('email', '#emails-container');
         } else if (activeTab === '#whatsapp') {
             loadActivitiesForLead('whatsapp', '#whatsapp-container');
+        } else if (activeTab === '#invoices_history') {
+            loadInvoices('invoice', '#invoices-table-body', '#invoices-datatable');
+        } else if (activeTab === '#proforma_invoices_history') {
+            loadInvoices('performa', '#proforma-invoices-table-body', '#proforma-invoices-datatable');
         } else if (activeTab === '#receipts_history') {
             loadReceiptsForLead();
         } else {

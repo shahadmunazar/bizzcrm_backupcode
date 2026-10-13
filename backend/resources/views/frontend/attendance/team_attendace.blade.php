@@ -1636,526 +1636,137 @@
         }
 
         // Proceed with AJAX
-        $.ajax({
-            url: '{{ route('team.attendace.employee', ['box_slug' => request()->route('box_slug')]) }}',
-            method: 'GET',
-            data: filters,
-            dataType: 'json',
-            success: function(response) {
-                // Handle DataTables response format
-                let data = [];
-                if (response && response.data) {
-                    data = response.data;
-                } else if (Array.isArray(response)) {
-                    data = response;
-                } else if (response && response.status === 404) {
-                    console.error("Error:", response.message);
-                    $('#attendace-admin tbody').html('<tr><td colspan="16" class="text-center text-danger">' + (response.message || 'Box user not found.') + '</td></tr>');
-                    return;
-                } else if (response && response.status === 500) {
-                    console.error("Error:", response.message, response.error);
-                    $('#attendace-admin tbody').html('<tr><td colspan="16" class="text-center text-danger">' + (response.message || 'An error occurred while fetching employee attendance.') + '</td></tr>');
-                    return;
+        const $table = $('#attendace-admin');
+        if ($.fn.DataTable.isDataTable($table)) {
+            $table.DataTable().clear().destroy();
+        }
+
+        let attendanceTable = $table.DataTable({
+            serverSide: true,
+            processing: true,
+            responsive: true,
+            autoWidth: false,
+            order: [[7, 'desc']], // Default sort by attendance date (column 7) descending
+            pageLength: 25,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
+            ajax: {
+                url: '{{ route('team.attendace.employee', ['box_slug' => request()->route('box_slug')]) }}',
+                data: function(d) {
+                    d.from_date = filters.from_date;
+                    d.to_date = filters.to_date;
+                    d.department = filters.department;
+                    d.status = filters.status;
+                    d.status_correction = filters.status_correction;
+                    d.scope = filters.scope;
                 }
-
-                const $table = $('#attendace-admin');
-                const tbody = $table.find('tbody');
-
-                if (!data || data.length === 0) {
-                    tbody.html('<tr><td colspan="16" class="text-center text-muted">No attendance records found.</td></tr>');
-                    if ($.fn.DataTable.isDataTable($table)) {
-                        $table.DataTable().clear().destroy();
+            },
+            columns: [
+                { data: null, defaultContent: '<div class="form-check form-check-md"><input class="form-check-input" type="checkbox" /></div>', orderable: false, searchable: false },
+                { data: 'id', name: 'id', render: function(data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; }, searchable: false },
+                { 
+                    data: 'user_name', name: 'user_name', 
+                    render: function(data, type, att) {
+                        const name = att.user_name || 'N/A';
+                        const imageHTML = att.profile_image ?
+                            `<img src="${att.profile_image}" class="avatar avatar-md rounded-circle" width="40" height="40" />` :
+                            `<div class="letter-avatar avatar avatar-md rounded-circle d-flex align-items-center justify-content-center"
+                                 data-name="${name}" style="width: 40px; height: 40px; color: white; font-weight: bold;">
+                                 ${name.charAt(0).toUpperCase()}
+                             </div>`;
+                        return `<div class="d-flex align-items-center">${imageHTML}<div class="ms-2"><h6 class="fw-medium mb-0">${name}</h6></div></div>`;
                     }
-                    // Custom sorting function to use data-sort attribute
-                    $.fn.dataTable.ext.order['dom-data-sort'] = function(settings, col) {
-                        return this.api().column(col, {order:'index'}).nodes().map(function(td, i) {
-                            return $(td).attr('data-sort') || $(td).text();
-                        });
-                    };
-
-                    let attendanceTable = $table.DataTable({
-                        responsive: true,
-                        autoWidth: false,
-                        order: [[7, 'desc']], // Default sort by attendance date (column 7) descending
-                        pageLength: 25,
-                        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
-                        columnDefs: [
-                            {
-                                targets: 0, // Checkbox column
-                                orderable: false,
-                                searchable: false
-                            },
-                            {
-                                targets: 1, // Sr.No column
-                                orderable: true,
-                                searchable: false,
-                                type: 'num',
-                                orderDataType: 'dom-data-sort'
-                            },
-                            {
-                                targets: 2, // Employee name column
-                                orderable: true,
-                                type: 'string',
-                                orderDataType: 'dom-data-sort'
-                            },
-                            {
-                                targets: 3, // Designation column
-                                orderable: true,
-                                type: 'string',
-                                orderDataType: 'dom-data-sort'
-                            },
-                            {
-                                targets: 4, // Department column
-                                orderable: true,
-                                type: 'string',
-                                orderDataType: 'dom-data-sort'
-                            },
-                            {
-                                targets: 5, // Working Mode column
-                                orderable: true,
-                                type: 'string',
-                                orderDataType: 'dom-data-sort'
-                            },
-                            {
-                                targets: 6, // Shift column
-                                orderable: true,
-                                type: 'string',
-                                orderDataType: 'dom-data-sort'
-                            },
-                            {
-                                targets: 7, // Attendance date column
-                                orderable: true,
-                                type: 'date',
-                                orderDataType: 'dom-data-sort'
-                            },
-                            {
-                                targets: 8, // Status column
-                                orderable: true,
-                                type: 'string',
-                                orderDataType: 'dom-data-sort'
-                            },
-                            {
-                                targets: 9, // Marked Via column
-                                orderable: true,
-                                type: 'string',
-                                orderDataType: 'dom-data-sort'
-                            },
-                            {
-                                targets: 10, // Check In column
-                                orderable: true,
-                                type: 'string',
-                                orderDataType: 'dom-data-sort'
-                            },
-                            {
-                                targets: 11, // Check Out column
-                                orderable: true,
-                                type: 'string',
-                                orderDataType: 'dom-data-sort'
-                            },
-                            {
-                                targets: 12, // Break column
-                                orderable: true,
-                                type: 'num',
-                                orderDataType: 'dom-data-sort'
-                            },
-                            {
-                                targets: 13, // Late column
-                                orderable: true,
-                                type: 'num',
-                                orderDataType: 'dom-data-sort'
-                            },
-                            {
-                                targets: 14, // Overtime column
-                                orderable: true,
-                                type: 'num',
-                                orderDataType: 'dom-data-sort'
-                            },
-                            {
-                                targets: 15, // Working hours column
-                                orderable: true,
-                                type: 'num',
-                                orderDataType: 'dom-data-sort'
-                            },
-                            {
-                                targets: 16, // Production Hours column
-                                orderable: true,
-                                type: 'num',
-                                orderDataType: 'dom-data-sort'
-                            },
-                            {
-                                targets: 17, // Machine column
-                                orderable: true,
-                                type: 'string',
-                                orderDataType: 'dom-data-sort'
-                            },
-                            {
-                                targets: 18, // Attendance Correction column
-                                orderable: true,
-                                type: 'num',
-                                searchable: false,
-                                orderDataType: 'dom-data-sort'
-                            }
-                        ],
-                        drawCallback: function() {
-                            // Apply column visibility after table is drawn
-                            if (typeof applyColumnVisibility === 'function') {
-                                applyColumnVisibility();
-                            }
-                        },
-                        language: {
-                            search: "Search:",
-                            lengthMenu: "Show _MENU_ entries",
-                            info: "Showing _START_ to _END_ of _TOTAL_ entries",
-                            infoEmpty: "Showing 0 to 0 of 0 entries",
-                            infoFiltered: "(filtered from _MAX_ total entries)",
-                            paginate: {
-                                first: "First",
-                                last: "Last",
-                                next: "Next",
-                                previous: "Previous"
-                            }
-                        }
-                    });
-                    return;
-                }
-
-                const rows = data.map((att, index) => {
-                    const name = att.user_name || 'N/A';
-                    const status = att.status || 'N/A';
-                    const corrections = att.corrections_statuses;
-                    const hasCorrections = Array.isArray(corrections) && corrections.length > 0;
-
-                    let correctionsButton = 'N/A';
-
-                    if (hasCorrections) {
+                },
+                { data: 'box_user.designation_relation.name', name: 'boxUser.designationRelation.name', defaultContent: '-' },
+                { data: 'box_user.department_relation.name', name: 'boxUser.departmentRelation.name', defaultContent: '-' },
+                { data: 'box_user.work_mode.name', name: 'boxUser.workMode.name', defaultContent: '-' },
+                { 
+                    data: 'box_user.shift.code', name: 'boxUser.shift.code',
+                    render: function(data, type, att) {
+                        const shift = att.box_user?.shift?.code ?? null;
+                        const shiftid = att.box_user?.shift?.id ?? null;
+                        return `<button class="btn btn-sm btn-primary shift-btn" ${shift && shiftid ? `data-id="${shiftid}" data-bs-toggle="modal" data-bs-target="#shiftInfoModal"` : 'disabled'}>${shift ?? '--'}</button>`;
+                    }
+                },
+                { 
+                    data: 'attendance_date', name: 'attendance_date',
+                    render: function(data) {
+                        return data ? (typeof formatDate === 'function' ? formatDate(data) : data) : '-';
+                    }
+                },
+                { 
+                    data: 'status', name: 'status',
+                    render: function(data) {
+                        const status = data || 'N/A';
+                        const normalizedStatus = status.toLowerCase();
+                        let badgeClass = 'badge-secondary';
+                        if (normalizedStatus === 'present') badgeClass = 'badge-success';
+                        else if (normalizedStatus === 'absent') badgeClass = 'badge-danger';
+                        else if (normalizedStatus === 'half day') badgeClass = 'badge-warning';
+                        else if (normalizedStatus === 'short leave') badgeClass = 'badge-orange';
+                        else if (normalizedStatus === 'comp off') badgeClass = 'badge-info';
+                        return `<span class="badge ${badgeClass}">${status}</span>`;
+                    }
+                },
+                { 
+                    data: 'check_attendace_by', name: 'check_attendace_by',
+                    render: function(data) {
+                        return typeof formatAttendanceSource === 'function' ? formatAttendanceSource(data) : (data || '-');
+                    }
+                },
+                { 
+                    data: 'check_in', name: 'check_in',
+                    render: function(data) { return typeof formatTime === 'function' ? formatTime(data) : (data || '-'); }
+                },
+                { 
+                    data: 'check_out', name: 'check_out',
+                    render: function(data) { return typeof formatTime === 'function' ? formatTime(data) : (data || '-'); }
+                },
+                { 
+                    data: 'break_duration', name: 'break_duration',
+                    render: function(data, type, att) {
+                        return data && data !== '-' ? `<span class="badge clickable-break" data-attendance-id="${att.id}" data-bs-toggle="modal" data-bs-target="#breaksModal" style="cursor: pointer; background-color: #6f42c1; color: white;"><i class="ti ti-clock-pause me-1"></i>${data}</span>` : '-';
+                    }
+                },
+                { data: 'late_duration', name: 'late_duration', defaultContent: '-' },
+                { data: 'over_time', name: 'over_time', defaultContent: '-' },
+                { data: 'working_hours', name: 'working_hours', defaultContent: '-' },
+                { 
+                    data: 'production_hours', name: 'production_hours',
+                    render: function(data, type, att) {
+                        return `<span class="badge badge-danger d-inline-flex align-items-center clickable-production" data-id="${att.id}" data-bs-toggle="modal" data-bs-target="#attendance_report" style="cursor: pointer;"><i class="ti ti-clock-hour-11 me-1"></i>${data || '0.00 Hrs'}</span>`;
+                    }
+                },
+                { data: 'machine.serial_no', name: 'machine.serial_no', defaultContent: '-' },
+                { 
+                    data: 'corrections_statuses', name: 'corrections_statuses',
+                    render: function(data, type, att) {
+                        const name = att.user_name || 'N/A';
+                        const corrections = att.corrections_statuses;
+                        const hasCorrections = Array.isArray(corrections) && corrections.length > 0;
+                        if (!hasCorrections) return 'N/A';
+                        
                         const pendingReq = corrections.find(c => c.status === 'pending');
                         const approvedReq = corrections.find(c => c.status === 'approved');
                         
                         if (pendingReq) {
-                            correctionsButton = `<button class="btn btn-sm btn-warning corrections-btn"
-                                   data-id="${att.id}"
-                                   data-date="${att.attendance_date}"
-                                   data-emp-name="${name}"
-                                   data-emp-id="${att.box_user?.employee_id || '-'}"
-                                   data-corrections='${JSON.stringify(corrections)}'
-                                   data-bs-toggle="modal"
-                                   data-bs-target="#correctionsModal">
-                                View Pending
-                            </button>`;
+                            return `<button class="btn btn-sm btn-warning corrections-btn" data-id="${att.id}" data-date="${att.attendance_date}" data-emp-name="${name}" data-emp-id="${att.box_user?.employee_id || '-'}" data-corrections='${JSON.stringify(corrections)}' data-bs-toggle="modal" data-bs-target="#correctionsModal">View Pending</button>`;
                         } else if (approvedReq) {
-                            correctionsButton = `<span class="badge bg-success">Approved</span>`;
+                            return `<span class="badge bg-success">Approved</span>`;
                         } else {
-                            // Possibly rejected or other statuses
                             const rejectedReq = corrections.find(c => c.status === 'rejected');
-                            if (rejectedReq) {
-                                correctionsButton = `<span class="badge bg-danger">Rejected</span>`;
-                            } else {
-                                correctionsButton = `<span class="badge bg-secondary">Correction</span>`;
-                            }
+                            if (rejectedReq) return `<span class="badge bg-danger">Rejected</span>`;
+                            return `<span class="badge bg-secondary">Correction</span>`;
                         }
-                    }
-
-                    const normalizedStatus = status.toLowerCase();
-                    const designation = att.box_user?.designation_relation?.name || '-';
-                    const department = att.box_user?.department_relation?.name || '-';
-                    const shift = att?.box_user?.shift?.code ?? null;
-                    const shiftid = att?.box_user?.shift?.id ?? null;
-                    let badgeClass = 'badge-secondary';
-                    if (normalizedStatus === 'present') {
-                        badgeClass = 'badge-success';
-                    } else if (normalizedStatus === 'absent') {
-                        badgeClass = 'badge-danger';
-                    } else if (normalizedStatus === 'half day') {
-                        badgeClass = 'badge-warning';
-                    } else if (normalizedStatus === 'short leave') {
-                        badgeClass = 'badge-orange';
-                    } else if (normalizedStatus === 'comp off') {
-                        badgeClass = 'badge-info';
-                    }
-                    const imageHTML = att.profile_image ?
-                        `<img src="${att.profile_image}" class="avatar avatar-md rounded-circle" width="40" height="40" />` :
-                        `<div class="letter-avatar avatar avatar-md rounded-circle d-flex align-items-center justify-content-center"
-                             data-name="${name}" style="width: 40px; height: 40px; color: white; font-weight: bold;">
-                             ${name.charAt(0).toUpperCase()}
-                         </div>`;
-                    // Helper function to convert time string to sortable format (HH:mm)
-                    const getSortableTime = (timeStr) => {
-                        if (!timeStr) return '9999:99'; // Put empty times at end
-                        const [h, m] = timeStr.split(':');
-                        return `${String(parseInt(h) || 0).padStart(2, '0')}:${String(parseInt(m) || 0).padStart(2, '0')}`;
-                    };
-
-                    // Helper function to convert date string to sortable format (YYYY-MM-DD)
-                    const getSortableDate = (dateStr) => {
-                        if (!dateStr) return '9999-99-99'; // Put empty dates at end
-                        try {
-                            const date = new Date(dateStr);
-                            return date.toISOString().split('T')[0];
-                        } catch (e) {
-                            return '9999-99-99';
-                        }
-                    };
-
-                    // Helper function to extract numeric value from duration strings
-                    const getSortableDuration = (durationStr) => {
-                        if (!durationStr || durationStr === '-') return 0;
-                        // Extract hours and minutes from strings like "2h 30m" or "2.5 Hrs"
-                        const match = durationStr.toString().match(/(\d+\.?\d*)/);
-                        return match ? parseFloat(match[1]) : 0;
-                    };
-
-                    return `
-                        <tr>
-                            <td><div class="form-check form-check-md"><input class="form-check-input" type="checkbox" /></div></td>
-                            <td data-sort="${index + 1}">${index + 1}</td>
-                            <td data-sort="${name.toLowerCase()}">
-                                <div class="d-flex align-items-center">
-                                    ${imageHTML}
-                                    <div class="ms-2">
-                                        <h6 class="fw-medium mb-0">${name}</h6>
-                                    </div>
-                                </div>
-                            </td>
-                            <td data-sort="${(designation || '-').toLowerCase()}">${designation}</td>
-                            <td data-sort="${(department || '-').toLowerCase()}">${department}</td>
-                            <td data-sort="${(att.box_user?.work_mode?.name || '-').toLowerCase()}">${att.box_user?.work_mode?.name || '-'}</td>
-                            <td data-sort="${(shift || 'zzz').toLowerCase()}">
-                                <button class="btn btn-sm btn-primary shift-btn"
-                                        ${shift && shiftid ? `data-id="${shiftid}" data-bs-toggle="modal" data-bs-target="#shiftInfoModal"` : 'disabled'}>
-                                    ${shift ?? '--'}
-                                </button>
-                            </td>
-                            <td data-sort="${getSortableDate(att.attendance_date)}">${formatDate(att.attendance_date)}</td>
-                            <td data-sort="${normalizedStatus}"><span class="badge ${badgeClass}">${status}</span></td>
-                            <td data-sort="${((att.check_attendace_by || '').toLowerCase() || 'zzz')}">${formatAttendanceSource(att.check_attendace_by)}</td>
-                            <td data-sort="${getSortableTime(att.check_in)}">${formatTime(att.check_in)}</td>
-                            <td data-sort="${getSortableTime(att.check_out)}">${formatTime(att.check_out)}</td>
-                            <td data-sort="${getSortableDuration(att.break_duration)}">
-                                ${att.break_duration ?
-                                    `<span class="badge clickable-break"
-                                          data-attendance-id="${att.id}"
-                                          data-bs-toggle="modal"
-                                          data-bs-target="#breaksModal"
-                                          style="cursor: pointer; background-color: #6f42c1; color: white;">
-                                        <i class="ti ti-clock-pause me-1"></i>${att.break_duration}
-                                    </span>` :
-                                    '-'}
-                            </td>
-                            <td data-sort="${getSortableDuration(att.late_duration)}">${att.late_duration || '-'}</td>
-                            <td data-sort="${getSortableDuration(att.over_time)}">${att.over_time || '-'}</td>
-                            <td data-sort="${getSortableDuration(att.working_hours)}">${att.working_hours || '-'}</td>
-                            <td data-sort="${getSortableDuration(att.production_hours)}">
-                                <span class="badge badge-danger d-inline-flex align-items-center clickable-production"
-                                      data-id="${att.id}"
-                                      data-bs-toggle="modal"
-                                      data-bs-target="#attendance_report"
-                                      style="cursor: pointer;">
-                                    <i class="ti ti-clock-hour-11 me-1"></i>${att.production_hours || '0.00 Hrs'}
-                                </span>
-                            </td>
-                            <td data-sort="${(att.machine?.serial_no || 'zzz').toLowerCase()}">${att.machine?.serial_no || '-'}</td>
-                            <td data-sort="${hasCorrections ? '1' : '0'}">${correctionsButton}</td>
-                        </tr>
-                    `;
-                }).join('');
-                if ($.fn.DataTable.isDataTable($table)) {
-                    $table.DataTable().clear().destroy();
-                }
-                tbody.html(rows);
-
-                // Custom sorting function to use data-sort attribute
-                $.fn.dataTable.ext.order['dom-data-sort'] = function(settings, col) {
-                    return this.api().column(col, {order:'index'}).nodes().map(function(td, i) {
-                        const sortValue = $(td).attr('data-sort');
-                        if (sortValue !== undefined) {
-                            // Try to parse as number if it's numeric
-                            const numValue = parseFloat(sortValue);
-                            if (!isNaN(numValue) && isFinite(numValue)) {
-                                return numValue;
-                            }
-                            return sortValue;
-                        }
-                        return $(td).text();
-                    });
-                };
-
-                let attendanceTable = $table.DataTable({
-                    responsive: true,
-                    autoWidth: false,
-                    order: [[7, 'desc']], // Default sort by attendance date (column 7) descending
-                    pageLength: 25,
-                    lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
-                    columnDefs: [
-                        {
-                            targets: 0, // Checkbox column
-                            orderable: false,
-                            searchable: false
-                        },
-                        {
-                            targets: 1, // Sr.No column
-                            orderable: true,
-                            searchable: false,
-                            type: 'num',
-                            orderDataType: 'dom-data-sort'
-                        },
-                        {
-                            targets: 2, // Employee name column
-                            orderable: true,
-                            type: 'string',
-                            orderDataType: 'dom-data-sort'
-                        },
-                        {
-                            targets: 3, // Designation column
-                            orderable: true,
-                            type: 'string',
-                            orderDataType: 'dom-data-sort'
-                        },
-                        {
-                            targets: 4, // Department column
-                            orderable: true,
-                            type: 'string',
-                            orderDataType: 'dom-data-sort'
-                        },
-                        {
-                            targets: 5, // Working Mode column
-                            orderable: true,
-                            type: 'string',
-                            orderDataType: 'dom-data-sort'
-                        },
-                        {
-                            targets: 6, // Shift column
-                            orderable: true,
-                            type: 'string',
-                            orderDataType: 'dom-data-sort'
-                        },
-                        {
-                            targets: 7, // Attendance date column
-                            orderable: true,
-                            type: 'date',
-                            orderDataType: 'dom-data-sort'
-                        },
-                        {
-                            targets: 8, // Status column
-                            orderable: true,
-                            type: 'string',
-                            orderDataType: 'dom-data-sort'
-                        },
-                        {
-                            targets: 9, // Marked Via column
-                            orderable: true,
-                            type: 'string',
-                            orderDataType: 'dom-data-sort'
-                        },
-                        {
-                            targets: 10, // Check In column
-                            orderable: true,
-                            type: 'string',
-                            orderDataType: 'dom-data-sort'
-                        },
-                        {
-                            targets: 11, // Check Out column
-                            orderable: true,
-                            type: 'string',
-                            orderDataType: 'dom-data-sort'
-                        },
-                        {
-                            targets: 12, // Break column
-                            orderable: true,
-                            type: 'num',
-                            orderDataType: 'dom-data-sort'
-                        },
-                        {
-                            targets: 13, // Late column
-                            orderable: true,
-                            type: 'num',
-                            orderDataType: 'dom-data-sort'
-                        },
-                        {
-                            targets: 14, // Overtime column
-                            orderable: true,
-                            type: 'num',
-                            orderDataType: 'dom-data-sort'
-                        },
-                        {
-                            targets: 15, // Working hours column
-                            orderable: true,
-                            type: 'num',
-                            orderDataType: 'dom-data-sort'
-                        },
-                        {
-                            targets: 16, // Production Hours column
-                            orderable: true,
-                            type: 'num',
-                            orderDataType: 'dom-data-sort'
-                        },
-                        {
-                            targets: 17, // Machine column
-                            orderable: true,
-                            type: 'string',
-                            orderDataType: 'dom-data-sort'
-                        },
-                        {
-                            targets: 18, // Attendance Correction column
-                            orderable: true,
-                            type: 'num',
-                            searchable: false,
-                            orderDataType: 'dom-data-sort'
-                        }
-                    ],
-                    drawCallback: function() {
-                        // Apply column visibility after table is drawn
-                        if (typeof applyColumnVisibility === 'function') {
-                            applyColumnVisibility();
-                        }
-                    },
-                    language: {
-                        search: "Search:",
-                        lengthMenu: "Show _MENU_ entries",
-                        info: "Showing _START_ to _END_ of _TOTAL_ entries",
-                        infoEmpty: "Showing 0 to 0 of 0 entries",
-                        infoFiltered: "(filtered from _MAX_ total entries)",
-                        paginate: {
-                            first: "First",
-                            last: "Last",
-                            next: "Next",
-                            previous: "Previous"
-                        }
-                    }
-                });
-
-                assignAvatarColors();
-            },
-            error: function(xhr, status, error) {
-                console.error("Error fetching employees:", {
-                    status: status,
-                    error: error,
-                    responseText: xhr.responseText,
-                    responseJSON: xhr.responseJSON,
-                    statusCode: xhr.status
-                });
-
-                let errorMessage = 'Failed to fetch attendance data.';
-                if (xhr.responseJSON && xhr.responseJSON.message) {
-                    errorMessage = xhr.responseJSON.message;
-                } else if (xhr.responseText) {
-                    try {
-                        const parsed = JSON.parse(xhr.responseText);
-                        errorMessage = parsed.message || parsed.error || errorMessage;
-                    } catch (e) {
-                        errorMessage = xhr.responseText || errorMessage;
                     }
                 }
-
-                $('#attendace-admin tbody').html(
-                    '<tr><td colspan="16" class="text-center text-danger">' + errorMessage + '</td></tr>'
-                );
-
-                // Destroy existing DataTable if it exists
-                if ($.fn.DataTable.isDataTable('#attendace-admin')) {
-                    $('#attendace-admin').DataTable().clear().destroy();
+            ],
+            drawCallback: function(settings) {
+                if (typeof applyColumnVisibility === 'function') {
+                    applyColumnVisibility();
                 }
             }
         });
+
     }
 //    $('#export-attendance-pdf').on('click', function () {
 //     $.ajax({

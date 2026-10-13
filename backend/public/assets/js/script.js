@@ -344,7 +344,7 @@ $(document).ready(function(){
 		function formatState (state) {
 		  if (!state.id) { return state.text; }
 		  var $state = $(
-		    '<span><img src="' + $(state.element).attr('data-image') + '" class="img-flag" / " width="16px"> ' + state.text + '</span>'
+		    '<span><img src="' + $(state.element).attr('data-image') + '" class="img-flag" width="16px" /> ' + state.text + '</span>'
 		  );
 		  return $state;
 		};
@@ -361,7 +361,7 @@ $(document).ready(function(){
 		function formatState (state) {
 		  if (!state.id) { return state.text; }
 		  var $state = $(
-		    '<span><img src="' + $(state.element).attr('data-image') + '" class="img-flag" / " width="16px"> ' + state.text + '</span>'
+		    '<span><img src="' + $(state.element).attr('data-image') + '" class="img-flag" width="16px" /> ' + state.text + '</span>'
 		  );
 		  return $state;
 		};

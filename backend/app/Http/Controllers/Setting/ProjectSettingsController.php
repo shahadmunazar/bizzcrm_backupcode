@@ -67,14 +67,7 @@ class ProjectSettingsController extends Controller
         }
 
         $request->validate([
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                \Illuminate\Validation\Rule::unique('project_types')->where(function ($query) use ($boxId) {
-                    return $query->where('box_id', $boxId)->whereNull('deleted_at');
-                }),
-            ],
+            'name' => 'required|string|max:255',
             'status' => 'required|boolean',
         ]);
 
@@ -97,14 +90,7 @@ class ProjectSettingsController extends Controller
 
         $request->validate([
             'id' => 'required|exists:project_types,id',
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                \Illuminate\Validation\Rule::unique('project_types')->where(function ($query) use ($boxId) {
-                    return $query->where('box_id', $boxId)->whereNull('deleted_at');
-                })->ignore($request->id),
-            ],
+            'name' => 'required|string|max:255',
             'status' => 'required|boolean',
         ]);
 
@@ -172,14 +158,7 @@ class ProjectSettingsController extends Controller
         }
 
         $request->validate([
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                \Illuminate\Validation\Rule::unique('project_categories')->where(function ($query) use ($boxId) {
-                    return $query->where('box_id', $boxId)->whereNull('deleted_at');
-                }),
-            ],
+            'name' => 'required|string|max:255',
             'status' => 'required|boolean',
         ]);
 
@@ -202,14 +181,7 @@ class ProjectSettingsController extends Controller
 
         $request->validate([
             'id' => 'required|exists:project_categories,id',
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                \Illuminate\Validation\Rule::unique('project_categories')->where(function ($query) use ($boxId) {
-                    return $query->where('box_id', $boxId)->whereNull('deleted_at');
-                })->ignore($request->id),
-            ],
+            'name' => 'required|string|max:255',
             'status' => 'required|boolean',
         ]);
 

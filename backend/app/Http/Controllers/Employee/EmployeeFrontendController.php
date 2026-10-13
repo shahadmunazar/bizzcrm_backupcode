@@ -428,12 +428,17 @@ class EmployeeFrontendController extends Controller
                     'notifications' => $notificationsResponse['data'] ?? [],
                     'team_members' => $teamMembersResponse['data'] ?? [],
                     'stats' => $statsResponse['data'] ?? null,
-                    'overview' => $overviewResponse['data'] ?? null,
+                    'overview' => [
+                        'present' => $overviewResponse['present'] ?? 0,
+                        'punch_out_miss' => $overviewResponse['punch_out_miss'] ?? 0,
+                        'late' => $overviewResponse['late'] ?? 0,
+                        'half_day' => $overviewResponse['half_day'] ?? 0,
+                        'absent' => $overviewResponse['absent'] ?? 0,
+                    ],
                 ]
             ], 200);
 
         } catch (\Exception $e) {
-            \Log::error('apiDashboardComplete Error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch complete dashboard data.',
@@ -590,22 +595,6 @@ class EmployeeFrontendController extends Controller
                         // ignore invalid dates
                     }
                 }
-            }
-            
-            if ($request->filled('title')) {
-                $query->where('title', 'like', '%' . $request->title . '%');
-            }
-            
-            if ($request->filled('status') && $request->status !== 'all') {
-                $query->where('status', $request->status);
-            }
-            
-            if ($request->filled('priority') && $request->priority !== 'all') {
-                $query->where('priority', $request->priority);
-            }
-            
-            if ($request->filled('category') && $request->category !== 'all') {
-                $query->where('category', $request->category);
             }
 
             if ($request->filled('sort')) {
@@ -1041,23 +1030,6 @@ class EmployeeFrontendController extends Controller
         return response()->json($query->get());
     }
 
-    public function getReactDealsJson()
-    {
-        $user = Auth::user();
-        $boxUserEntry = BoxUser::where('user_id', $user->id)->first();
-        if (!$boxUserEntry) return response()->json([]);
-
-        $deals = \Illuminate\Support\Facades\DB::table('deals')
-            ->leftJoin('leads', 'deals.lead_id', '=', 'leads.id')
-            ->select('deals.*', 'leads.name as lead_name')
-            ->where('deals.box_id', $boxUserEntry->box_id)
-            ->whereNull('deals.deleted_at')
-            ->orderBy('deals.id', 'desc')
-            ->get();
-
-        return response()->json($deals);
-    }
-
     public function getPipelinesJson()
     {
         $user = Auth::user();
@@ -1105,37 +1077,7 @@ class EmployeeFrontendController extends Controller
         $boxUserEntry = BoxUser::where('user_id', $user->id)->first();
         if (!$boxUserEntry) return response()->json([]);
 
-        $projects = \Illuminate\Support\Facades\DB::table('projects')
-            ->where('box_id', $boxUserEntry->box_id)
-            ->whereNull('deleted_at')
-            ->orderBy('id', 'desc')
-            ->get();
-
-        if ($projects->isEmpty()) {
-            return response()->json([]);
-        }
-
-        $projectIds = $projects->pluck('id');
-
-        $teamMembers = \Illuminate\Support\Facades\DB::table('project_user')
-            ->whereIn('project_id', $projectIds)
-            ->get()
-            ->groupBy('project_id');
-
-        $contacts = \Illuminate\Support\Facades\DB::table('project_contacts')
-            ->whereIn('project_id', $projectIds)
-            ->whereNull('deleted_at')
-            ->get()
-            ->groupBy('project_id');
-
-        foreach ($projects as $project) {
-            $members = $teamMembers->get($project->id, collect());
-            $project->team_leaders = $members->where('role', 'team_leader')->pluck('user_id')->toArray();
-            $project->responsible_persons = $members->where('role', 'responsible_person')->pluck('user_id')->toArray();
-            
-            $project->contacts = $contacts->get($project->id, collect())->toArray();
-        }
-
+        $projects = \App\Models\Project::where('box_id', $boxUserEntry->box_id)->orderBy('id', 'desc')->get();
         return response()->json($projects);
     }
 
@@ -1240,8 +1182,6 @@ class EmployeeFrontendController extends Controller
             'contact_id' => $request->contact_id ? (is_array($request->contact_id) ? $request->contact_id[0] : $request->contact_id) : null,
             'due_date' => $request->due_date ? date('Y-m-d', strtotime($request->due_date)) : null,
             'expected_close_date' => $request->expected_close_date ? date('Y-m-d', strtotime($request->expected_close_date)) : null,
-            'follow_up_date' => $request->follow_up_date ? date('Y-m-d', strtotime($request->follow_up_date)) : null,
-            'description' => $request->description,
             'created_by' => $user->id
         ]);
 
@@ -1278,8 +1218,6 @@ class EmployeeFrontendController extends Controller
             'contact_id' => $request->contact_id ? (is_array($request->contact_id) ? $request->contact_id[0] : $request->contact_id) : null,
             'due_date' => $request->due_date ? date('Y-m-d', strtotime($request->due_date)) : null,
             'expected_close_date' => $request->expected_close_date ? date('Y-m-d', strtotime($request->expected_close_date)) : null,
-            'follow_up_date' => $request->follow_up_date ? date('Y-m-d', strtotime($request->follow_up_date)) : null,
-            'description' => $request->description,
         ]);
 
         return response()->json(['success' => true, 'message' => 'Deal updated successfully.', 'data' => $deal]);

@@ -232,7 +232,7 @@ class PermissionHelper
         return [
             'attendance'         => [
                 'name'        => 'Attendance',
-                'sub_modules' => ['admin', 'employee', 'biometric', 'calendar', 'list', 'grid', 'details', 'details_personal', 'details_emergency', 'details_about', 'details_bank', 'details_family', 'details_education', 'details_experience', 'details_location', 'details_biometric', 'details_work_mode', 'details_assets', 'details_loan', 'details_projects', 'details_shift', 'leaves', 'admin_leaves', 'leave_settings', 'leave_type', 'leave_transaction', 'shift', 'holiday_type', 'holiday', 'team_admin', 'team_leave_transaction', 'device_register', 'mobile_attendance'],
+                'sub_modules' => ['admin', 'employee', 'biometric', 'calendar', 'list', 'grid', 'details', 'details_personal', 'details_emergency', 'details_about', 'details_bank', 'details_family', 'details_education', 'details_experience', 'details_location', 'details_biometric', 'details_work_mode', 'details_assets', 'details_loan', 'details_projects', 'details_shift', 'details_department', 'details_designation', 'leaves', 'admin_leaves', 'leave_settings', 'leave_type', 'leave_transaction', 'shift', 'holiday_type', 'holiday', 'team_admin', 'team_leave_transaction', 'device_register', 'mobile_attendance'],
             ],
             'hr_tools'           => [
                 'name'        => 'HR Tools',
@@ -244,7 +244,7 @@ class PermissionHelper
             ],
             'leads'              => [
                 'name'        => 'Leads',
-                'sub_modules' => ['dashboard', 'list', 'listall', 'listtrash', 'listduplicate', 'working_location', 'details'],
+                'sub_modules' => ['dashboard', 'list', 'listall', 'listtrash', 'listduplicate', 'working_location', 'details', 'manage_form', 'leads_sub_status'],
             ],
             'integrations'       => [
                 'name'        => 'Integration',
@@ -256,7 +256,7 @@ class PermissionHelper
             ],
             'website_settings'   => [
                 'name'        => 'Website Settings',
-                'sub_modules' => ['company', 'branch', 'employee_type', 'attendance_module', 'companys_currency', 'work_mode', 'localization', 'prefixes', 'preference', 'appearance', 'language'],
+                'sub_modules' => ['company', 'branch', 'employee_type', 'attendance_module', 'companys_currency', 'company_currency', 'work_mode', 'localization', 'prefixes', 'preference', 'appearance', 'language', 'lead_apis', 'custom_fields'],
             ],
             'app_settings'       => [
                 'name'        => 'App Settings',
@@ -268,7 +268,7 @@ class PermissionHelper
             ],
             'financial_settings' => [
                 'name'        => 'Financial Settings',
-                'sub_modules' => ['payment_gateways', 'bank_accounts', 'tax_rates', 'currencies', 'payment_modes', 'divisions'],
+                'sub_modules' => ['payment_gateways', 'bank_accounts', 'tax_rates', 'currencies', 'payment_modes', 'divisions', 'projects', 'products'],
             ],
             'other_settings'     => [
                 'name'        => 'Other Settings',
@@ -280,7 +280,7 @@ class PermissionHelper
             ],
             'accounts'           => [
                 'name'        => 'Accounts',
-                'sub_modules' => ['receipts', 'invoice', 'invoices', 'invoice_details', 'invoice_grid', 'invoice_settings', 'invoice_templates'],
+                'sub_modules' => ['receipts', 'invoice', 'invoices', 'invoice_details', 'invoice_grid', 'invoice_settings', 'invoice_templates', 'ledger', 'proforma_invoices'],
             ],
             'activities_records' => [
                 'name'        => 'Activities Records',
@@ -410,6 +410,8 @@ class PermissionHelper
             'accounts.invoice_details'                => 'accounts.invoice_details.read',
             'accounts.invoice_grid'                   => 'accounts.invoice_grid.read',
             'accounts.invoice_settings'               => 'accounts.invoice_settings.read',
+            'accounts.ledger.index'                   => 'accounts.ledger.read',
+            'accounts.proforma_invoices'              => 'accounts.proforma_invoices.read',
 
 
             // Activities Records routes

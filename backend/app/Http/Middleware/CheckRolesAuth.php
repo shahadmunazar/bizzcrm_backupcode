@@ -34,6 +34,17 @@ class CheckRolesAuth
         }
 
         if (!$user->hasAnyRole($roles)) {
+            // If they are impersonating but hitting a route they don't have access to,
+            // assume they refreshed their original tab, so we revert them to their original user.
+            // (Only do this for standard page loads, not background AJAX calls!)
+            if (session()->has('impersonated_by') && !$request->ajax() && !$request->expectsJson() && in_array('superadmin', $roles)) {
+                $originalUserId = session('impersonated_by');
+                Auth::loginUsingId($originalUserId);
+                session()->forget('impersonated_by');
+                // Reload the current request with the restored superadmin user
+                return redirect($request->fullUrl());
+            }
+
             // If AJAX request, return JSON response
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
@@ -41,9 +52,7 @@ class CheckRolesAuth
                     'redirect' => route('login')
                 ], 403);
             }
-            // Otherwise redirect to login
-            Auth::logout();
-            $request->session()->invalidate();
+            // Otherwise redirect to a safe place
             return redirect()->route('login')->with('error', 'Unauthorized: You do not have permission to access this resource.');
         }
 
@@ -59,9 +68,7 @@ class CheckRolesAuth
                     'redirect' => route('login')
                 ], 404);
             }
-            // Otherwise redirect to login
-            Auth::logout();
-            $request->session()->invalidate();
+            // Otherwise redirect
             return redirect()->route('login')->with('error', 'Box not found. Please login again.');
         }
 
@@ -77,9 +84,15 @@ class CheckRolesAuth
                     'redirect' => route('login')
                 ], 403);
             }
-            // Otherwise redirect to login
-            Auth::logout();
-            $request->session()->invalidate();
+            
+            if ($user->hasRole('superadmin')) {
+                // Get the superadmin box slug
+                $superadminBox = \App\Models\Box::where('superadmin_id', $user->id)->first();
+                $redirectSlug = $superadminBox ? $superadminBox->slug : 'demobizzcom';
+                return redirect()->route('superadmin.company', ['box_slug' => $redirectSlug])->with('error', 'You are no longer impersonating.');
+            }
+            
+            // Otherwise redirect
             return redirect()->route('login')->with('error', 'You are not a member of this box. Please login again.');
         }
         view()->share('box_slug', $boxSlug);

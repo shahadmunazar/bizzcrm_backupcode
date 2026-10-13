@@ -41,6 +41,38 @@ class LeadsFrontendController extends Controller
         return view('frontend.leads.index', compact('defaultYear', 'availableYears'));
     }
 
+    public function userDashboard()
+    {
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $boxUser = BoxUser::where('user_id', $userId)->first();
+        $boxId = $boxUser ? $boxUser->box_id : null;
+
+        // Fetch team members based strictly on the reporting manager hierarchy
+        $teamMemberIds = $user->getSelfAndChainMembers();
+        
+        $teamMembers = \App\Models\User::whereIn('id', $teamMemberIds)->get(['id', 'name']);
+
+        $latestLead = Lead::where('box_id', $boxId)->whereIn('assigned_to', $teamMemberIds)->latest('created_at')->first();
+        $defaultYear = $latestLead ? Carbon::parse($latestLead->created_at)->year : date('Y');
+
+        $availableYears = Lead::where('box_id', $boxId)
+            ->whereIn('assigned_to', $teamMemberIds)
+            ->whereNotNull('created_at')
+            ->selectRaw('YEAR(created_at) as year')
+            ->distinct()
+            ->orderBy('year', 'desc')
+            ->pluck('year')
+            ->toArray();
+
+        if (empty($availableYears)) {
+            $availableYears = [date('Y')];
+        }
+
+        return view('frontend.leads.user_dashboard', compact('defaultYear', 'availableYears', 'teamMembers'));
+    }
+
     private function calculatePercentageChange($current, $previous)
     {
         if ($previous == 0) {
@@ -75,6 +107,52 @@ class LeadsFrontendController extends Controller
                     $startDateStr,
                     $endDateStr,
                     $chartYear
+                );
+            }
+        );
+
+        return response()->json($data);
+    }
+
+    public function userDashboardData(Request $request)
+    {
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $boxUser = BoxUser::where('user_id', $userId)->select('box_id')->first();
+        
+        if (!$boxUser || !$boxUser->box_id) {
+            return response()->json(['error' => 'Box ID not found'], 403);
+        }
+
+        $startDateStr = $request->get('start_date');
+        $endDateStr = $request->get('end_date');
+        $chartYear = $request->get('chart_year');
+        $selectedUserId = $request->get('selected_user_id');
+
+        $targetUserId = $userId;
+        if ($selectedUserId && $selectedUserId != $userId) {
+            $allowedIds = $user->getSelfAndChainMembers();
+            
+            if (in_array($selectedUserId, $allowedIds)) {
+                $targetUserId = $selectedUserId;
+            }
+        }
+        
+        $cacheKey = "user_dashboard:{$boxUser->box_id}:{$targetUserId}:{$startDateStr}:{$endDateStr}:{$chartYear}";
+
+        $data = \Illuminate\Support\Facades\Cache::remember(
+            $cacheKey,
+            now()->addSeconds(30),
+            function () use ($boxUser, $userId, $startDateStr, $endDateStr, $chartYear, $targetUserId) {
+                $service = app(\App\Services\DashboardService::class);
+                return $service->getDashboardData(
+                    $boxUser->box_id,
+                    $userId,
+                    $startDateStr,
+                    $endDateStr,
+                    $chartYear,
+                    $targetUserId
                 );
             }
         );

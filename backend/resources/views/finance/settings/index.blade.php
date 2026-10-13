@@ -7,29 +7,43 @@
             <h4 class="page-title">Finance Settings</h4>
         </div>
 
+        @php
+            $hasAllowance = \App\Helpers\PermissionHelper::hasModulePermission('finance_settings_allowance_types', 'read');
+            $hasExpenseCat = \App\Helpers\PermissionHelper::hasModulePermission('finance_settings_expense_categories', 'read');
+            $hasApproval = \App\Helpers\PermissionHelper::hasModulePermission('finance_settings_approval_rules', 'read');
+            $activeTab = $hasAllowance ? 'allowance' : ($hasExpenseCat ? 'category' : ($hasApproval ? 'rules' : 'none'));
+        @endphp
+
         <!-- Settings Navigation Tabs -->
         <ul class="nav nav-tabs nav-tabs-solid mb-4" id="settingsTab" role="tablist">
+            @if($hasAllowance)
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="allowance-tab" data-bs-toggle="tab" data-bs-target="#allowance-content" type="button" role="tab">
+                <button class="nav-link {{ $activeTab == 'allowance' ? 'active' : '' }}" id="allowance-tab" data-bs-toggle="tab" data-bs-target="#allowance-content" type="button" role="tab">
                     <i class="ti ti-wallet"></i> Allowance Types
                 </button>
             </li>
+            @endif
+            @if($hasExpenseCat)
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="category-tab" data-bs-toggle="tab" data-bs-target="#category-content" type="button" role="tab">
+                <button class="nav-link {{ $activeTab == 'category' ? 'active' : '' }}" id="category-tab" data-bs-toggle="tab" data-bs-target="#category-content" type="button" role="tab">
                     <i class="ti ti-category"></i> Expense Categories
                 </button>
             </li>
+            @endif
+            @if($hasApproval)
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="rules-tab" data-bs-toggle="tab" data-bs-target="#rules-content" type="button" role="tab">
+                <button class="nav-link {{ $activeTab == 'rules' ? 'active' : '' }}" id="rules-tab" data-bs-toggle="tab" data-bs-target="#rules-content" type="button" role="tab">
                     <i class="ti ti-checkup-list"></i> Approval Rules
                 </button>
             </li>
+            @endif
         </ul>
 
         <div class="tab-content" id="settingsTabContent">
             
+            @if($hasAllowance)
             <!-- ALLOWANCE TYPES TAB -->
-            <div class="tab-pane fade show active" id="allowance-content" role="tabpanel">
+            <div class="tab-pane fade {{ $activeTab == 'allowance' ? 'show active' : '' }}" id="allowance-content" role="tabpanel">
                 <div class="d-flex justify-content-end mb-3">
                     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAllowanceModal">
                         <i class="ti ti-plus"></i> Add Allowance Type
@@ -58,9 +72,11 @@
                     </div>
                 </div>
             </div>
+            @endif
 
+            @if($hasExpenseCat)
             <!-- EXPENSE CATEGORIES TAB -->
-            <div class="tab-pane fade" id="category-content" role="tabpanel">
+            <div class="tab-pane fade {{ $activeTab == 'category' ? 'show active' : '' }}" id="category-content" role="tabpanel">
                 <div class="d-flex justify-content-end mb-3">
                     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
                         <i class="ti ti-plus"></i> Add Category
@@ -86,9 +102,11 @@
                     </div>
                 </div>
             </div>
+            @endif
 
+            @if($hasApproval)
             <!-- APPROVAL RULES TAB -->
-            <div class="tab-pane fade" id="rules-content" role="tabpanel">
+            <div class="tab-pane fade {{ $activeTab == 'rules' ? 'show active' : '' }}" id="rules-content" role="tabpanel">
                 <div class="d-flex justify-content-end mb-3">
                     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addRuleModal">
                         <i class="ti ti-plus"></i> Add Rule
@@ -116,6 +134,7 @@
                     </div>
                 </div>
             </div>
+            @endif
 
         </div> <!-- End Tab Content -->
     </div>

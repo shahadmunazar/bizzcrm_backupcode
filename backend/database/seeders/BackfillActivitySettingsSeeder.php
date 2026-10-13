@@ -18,6 +18,13 @@ class BackfillActivitySettingsSeeder extends Seeder
 
         foreach ($boxes as $box) {
             $this->command->info("Processing Box: {$box->name} (ID: {$box->id})");
+            
+            // Fetch legacy statuses for this box
+            $legacyStatuses = DB::connection('bizzcrm_migrate')
+                ->table('activity_statuses')
+                ->where('box_id', $box->id)
+                ->pluck('name')
+                ->toArray();
 
             // 1. Ensure Activity Settings exist (Call, Email, Meeting, WhatsApp, Notes, General)
             $settings = [
@@ -52,8 +59,34 @@ class BackfillActivitySettingsSeeder extends Seeder
             }
 
             // 2. Ensure Activity Types exist
-            $defaultActivityTypes = ['New', 'Follow Up'];
-            $special8ActivityTypes = ['New order', 'No order', 'New Payments', 'General Discussion', 'Order Follow up', 'Others', 'Payment Follow Up', 'Check Out'];
+            $baseDefaultActivityTypes = ['New', 'Follow Up'];
+            $baseSpecial8ActivityTypes = ['New order', 'No order', 'New Payments', 'General Discussion', 'Order Follow up', 'Others', 'Payment Follow Up', 'Check Out'];
+            
+            // Merge and get unique types (Legacy first, case-insensitive deduplication)
+            $defaultActivityTypes = [];
+            $special8ActivityTypes = [];
+            
+            $seenDefault = [];
+            foreach (array_merge($legacyStatuses, $baseDefaultActivityTypes) as $type) {
+                $type = trim($type);
+                if (empty($type)) continue;
+                $lower = strtolower($type);
+                if (!in_array($lower, $seenDefault)) {
+                    $seenDefault[] = $lower;
+                    $defaultActivityTypes[] = $type;
+                }
+            }
+            
+            $seenSpecial8 = [];
+            foreach (array_merge($legacyStatuses, $baseSpecial8ActivityTypes) as $type) {
+                $type = trim($type);
+                if (empty($type)) continue;
+                $lower = strtolower($type);
+                if (!in_array($lower, $seenSpecial8)) {
+                    $seenSpecial8[] = $lower;
+                    $special8ActivityTypes[] = $type;
+                }
+            }
             
             $activityTypeIds = [];
             foreach ($activitySettingIds as $settingName => $settingId) {
@@ -63,6 +96,7 @@ class BackfillActivitySettingsSeeder extends Seeder
                         ->where('box_id', $box->id)
                         ->where('activity_setting_id', $settingId)
                         ->where('activity_type', $type)
+                        ->where('target_type', 'leads')
                         ->first();
                         
                     if ($existingType) {
@@ -90,6 +124,7 @@ class BackfillActivitySettingsSeeder extends Seeder
                             ->where('box_id', $box->id)
                             ->where('activity_setting_id', $settingId)
                             ->where('activity_type', $type)
+                            ->where('target_type', 'customers')
                             ->first();
                             
                         if ($existingType) {
@@ -111,22 +146,53 @@ class BackfillActivitySettingsSeeder extends Seeder
                 }
             }
 
-            // 3. Ensure Activity Statuses exist
-            $statuses = [
-                'Call' => ['Busy', 'No Answer', 'Unavailable', 'Wrong Number'],
-                'Meeting' => ['Done', 'Not Done'],
+            // 3. Ensure Activity Statuses exist (Mapped by Activity Type)
+            $statusesByType = [
+                'New' => ['Busy', 'No Answer', 'Unavailable', 'Wrong Number', 'Connected'],
+                'Follow Up' => ['Done', 'Not Done', 'Busy', 'No Answer', 'Rescheduled'],
+                'New order' => ['Processed', 'Pending', 'Cancelled'],
+                'No order' => ['Not Interested', 'Call Back Later'],
+                'New Payments' => ['Received', 'Pending', 'Failed'],
+                'General Discussion' => ['Completed', 'Pending'],
+                'Order Follow up' => ['Done', 'Not Done'],
+                'Others' => ['Completed', 'Pending'],
+                'Payment Follow Up' => ['Done', 'Not Done'],
+                'Check Out' => ['Completed', 'Pending'],
             ];
             
-            foreach ($statuses as $settingName => $statusList) {
-                foreach ($statusList as $statusName) {
-                    $createdTypesForSetting = array_keys($activityTypeIds[$settingName] ?? []);
+            foreach ($activitySettingIds as $settingName => $settingId) {
+                $types = DB::table('activity_types')
+                    ->where('box_id', $box->id)
+                    ->where('activity_setting_id', $settingId)
+                    ->get();
                     
-                    foreach ($createdTypesForSetting as $type) {
-                        $typeId = $activityTypeIds[$settingName][$type];
+                foreach ($types as $typeObj) {
+                    $typeName = $typeObj->activity_type;
+                    $typeId = $typeObj->id;
+                    
+                    // Get base statuses for this specific type, fallback to ['Done', 'Not Done'] if type not found
+                    $base = $statusesByType[$typeName] ?? ['Done', 'Not Done'];
+                    
+                    // Seed legacy statuses first, then base statuses. Prevent duplicates (case-insensitive check)
+                    $combined = array_merge($legacyStatuses, $base);
+                    $statusList = [];
+                    $seenStatuses = [];
+                    
+                    foreach ($combined as $statusName) {
+                        $statusName = trim($statusName);
+                        if (empty($statusName)) continue;
                         
+                        $lower = strtolower($statusName);
+                        if (!in_array($lower, $seenStatuses)) {
+                            $seenStatuses[] = $lower;
+                            $statusList[] = $statusName;
+                        }
+                    }
+                    
+                    foreach ($statusList as $statusName) {
                         $existingStatus = DB::table('activity_statuses')
                             ->where('box_id', $box->id)
-                            ->where('activity_setting_id', $activitySettingIds[$settingName])
+                            ->where('activity_setting_id', $settingId)
                             ->where('activity_type_id', $typeId)
                             ->where('activity_status', $statusName)
                             ->first();
@@ -134,7 +200,7 @@ class BackfillActivitySettingsSeeder extends Seeder
                         if (!$existingStatus) {
                             DB::table('activity_statuses')->insert([
                                 'box_id' => $box->id,
-                                'activity_setting_id' => $activitySettingIds[$settingName],
+                                'activity_setting_id' => $settingId,
                                 'activity_type_id' => $typeId,
                                 'activity_status' => $statusName,
                                 'status' => 1,

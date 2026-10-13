@@ -1003,6 +1003,14 @@ class LeadsController extends Controller
         $prefixedColumns = array_map(function ($col) {
             return 'leads.' . $col;
         }, $columns);
+
+        $userId = \Illuminate\Support\Facades\Auth::id();
+        
+        // Exclude the physical is_starred column and replace with dynamic check
+        if (($key = array_search('leads.is_starred', $prefixedColumns)) !== false) {
+            unset($prefixedColumns[$key]);
+        }
+        $prefixedColumns[] = \Illuminate\Support\Facades\DB::raw("EXISTS (SELECT 1 FROM lead_stars WHERE lead_stars.lead_id = leads.id AND lead_stars.user_id = $userId) as is_starred");
         $leadsQuery->select($prefixedColumns);
 
 
@@ -1099,7 +1107,9 @@ class LeadsController extends Controller
 
         // Apply Starred Filter
         if (isset($params['starred']) && $params['starred'] == 'true') {
-            $leadsQuery->where('leads.is_starred', 1);
+            $leadsQuery->whereHas('stars', function ($q) use ($userId) {
+                $q->where('user_id', $userId);
+            });
         }
 
         // Apply Date Range Filter
@@ -1515,22 +1525,39 @@ class LeadsController extends Controller
             return response()->json(['status' => false, 'message' => 'Lead not found'], 404);
         }
 
-        $lead->is_starred = !$lead->is_starred;
-        $lead->save();
+        $star = \App\Models\LeadStar::where('user_id', $userId)->where('lead_id', $lead->id)->first();
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Lead star status toggled',
-            'is_starred' => $lead->is_starred
-        ]);
+        if ($star) {
+            $star->delete();
+            return response()->json([
+                'status' => true,
+                'message' => 'Lead star removed',
+                'is_starred' => false
+            ]);
+        } else {
+            \App\Models\LeadStar::create([
+                'user_id' => $userId,
+                'lead_id' => $lead->id,
+            ]);
+            return response()->json([
+                'status' => true,
+                'message' => 'Lead starred successfully',
+                'is_starred' => true
+            ]);
+        }
     }
 
     public function getLeads(Request $request)
     {
         try {
             $userId = Auth::id();
-            $boxId = BoxUser::where('user_id', $userId)
-                ->value('box_id');
+            $boxSlug = $request->route('box_slug');
+            if ($boxSlug) {
+                $box = \App\Models\Box::where('slug', $boxSlug)->first();
+                $boxId = $box ? $box->id : null;
+            } else {
+                $boxId = BoxUser::where('user_id', $userId)->value('box_id');
+            }
 
             Log::info('Leads Fetch Started', ['user_id' => $userId, 'box_id' => $boxId]);
 
@@ -1596,12 +1623,10 @@ class LeadsController extends Controller
                 ], 200, [], JSON_INVALID_UTF8_IGNORE);
             }
 
-            // Resource optimization for large requests
-            $length = $request->input('length', 10);
-            if ($length > 1000 || $length == -1) {
-                ini_set('memory_limit', '1024M'); // Increased for safety
-                set_time_limit(300);
-            }
+            // Resource optimization: DataTables operations can be memory intensive even for small pages
+            // due to query building, eager loading, and complex custom column processing.
+            ini_set('memory_limit', '1024M');
+            set_time_limit(300);
 
             // Optimization: Use eager loading (third param true) to prevent N+1 queries 
             // even in standard DataTables mode. This significantly improves performance 
@@ -1658,8 +1683,14 @@ class LeadsController extends Controller
     public function getReminderLeads(Request $request)
     {
         try {
-            $boxId = BoxUser::where('user_id', Auth::id())
-                ->value('box_id');
+            $userId = Auth::id();
+            $boxSlug = $request->route('box_slug');
+            if ($boxSlug) {
+                $box = \App\Models\Box::where('slug', $boxSlug)->first();
+                $boxId = $box ? $box->id : null;
+            } else {
+                $boxId = BoxUser::where('user_id', $userId)->value('box_id');
+            }
             if (!$boxId) {
                 return response()->json([
                     'status' => false,

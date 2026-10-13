@@ -28,41 +28,45 @@ class WorkModeSettingSeeder extends Seeder
 
         // Fetch existing to avoid duplicates
         $existing = WorkModeSetting::select('box_id', 'name')->get()->map(function($item) {
-            return $item->box_id . '-' . $item->name;
+            return ($item->box_id ?? '') . '-' . $item->name;
         })->toArray();
 
-        if (empty($boxes)) {
+        // 1. Always ensure global system defaults (box_id = null)
+        foreach ($modes as $mode) {
+            if (!in_array("-" . $mode, $existing)) {
+                $insertData[] = [
+                    'box_id' => null,
+                    'name' => $mode,
+                    'status' => 1,
+                    'created_at' => $now,
+                    'updated_at' => $now
+                ];
+                $existing[] = "-" . $mode;
+            }
+        }
+
+        // 2. Ensure per-box work modes for all existing boxes
+        foreach ($boxes as $boxId) {
             foreach ($modes as $mode) {
-                if (!in_array("-" . $mode, $existing)) {
+                if (!in_array($boxId . "-" . $mode, $existing)) {
                     $insertData[] = [
-                        'box_id' => null,
+                        'box_id' => $boxId,
                         'name' => $mode,
                         'status' => 1,
                         'created_at' => $now,
                         'updated_at' => $now
                     ];
-                }
-            }
-        } else {
-            foreach ($boxes as $boxId) {
-                foreach ($modes as $mode) {
-                    if (!in_array($boxId . "-" . $mode, $existing)) {
-                        $insertData[] = [
-                            'box_id' => $boxId,
-                            'name' => $mode,
-                            'status' => 1,
-                            'created_at' => $now,
-                            'updated_at' => $now
-                        ];
-                    }
+                    $existing[] = $boxId . "-" . $mode;
                 }
             }
         }
 
         // Chunk bulk insert
-        $chunks = array_chunk($insertData, 1000);
-        foreach ($chunks as $chunk) {
-            WorkModeSetting::insert($chunk);
+        if (!empty($insertData)) {
+            $chunks = array_chunk($insertData, 1000);
+            foreach ($chunks as $chunk) {
+                WorkModeSetting::insert($chunk);
+            }
         }
     }
 }

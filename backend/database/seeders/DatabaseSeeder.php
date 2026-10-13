@@ -23,22 +23,35 @@ class DatabaseSeeder extends Seeder
         $this->call(MasterIndustrySeeder::class);
         $this->call(IndustrySeeder::class);
         $this->call(PackageFeatureSeeder::class);
+        $this->call(WhatsAppFeatureSeeder::class);
         $this->call(PlanSeeder::class);
-        $this->call(EmployeeTypeSeeder::class);
-        $this->call(WorkModeSettingSeeder::class);
 
         // 2. Base Structural Data (Users, Boxes)
         // DataMigrate imports old users/boxes, so it must run before dummy seeders
         $this->call(DataMigrateSeeder::class);
         $this->call(UserSeeder::class);
+        $this->call(UserEmailVerifiedAtSeeder::class);
         $this->call(BoxSeeder::class);
+        $this->call(BoxPermissionSeeder::class);
 
-        // 3. Statuses, Sources & Templates (Depends on Boxes/System)
+        // 3. Employee & Organizational Setup (Depends on Users & Boxes)
+        // Seed employee types, work modes, shifts, departments, and assign employee data together
+        $this->call(EmployeeTypeSeeder::class);
+        $this->call(WorkModeSettingSeeder::class);
+        $this->call(StandardShiftSeeder::class);
+        $this->call(DepartmentCreateJobSeeder::class);
+        $this->call(BackfillSystemEmployeeDataSeeder::class);
+        $this->call(BackfillEmployeeTypeAndWorkModeSeeder::class);
+        $this->call(UpdateBoxLeaveCreditSettingsSeeder::class);
+
+        // 4. Statuses, Sources & Templates (Depends on Boxes/System)
         // Configurations that Leads and Activities rely on
         $this->call(LeadStatusDataSeeder::class);
         $this->call(LeadSourceDataSeeder::class);
         $this->call(LeadSourceTemplatesSeeder::class);
+        $this->call(BackfillActivitySettingsSeeder::class);
         $this->call(ActivityTypeDataSeeder::class);
+
         $this->call(ActivityStatusDataSeeder::class);
         $this->call(BoxCustomFieldsSeeder::class);
         $this->call(BoxCustomDataSeeder::class);
@@ -62,5 +75,14 @@ class DatabaseSeeder extends Seeder
         // 7. Email Data Migration (Must be last to ensure Users, Boxes, and Leads exist)
         $this->call(EmailInboxesSeeder::class);
         $this->call(GmailMessagesSeeder::class);
+
+        // 8. Master Content & System Fields
+        $this->call(SystemFieldsSeeder::class);
+        $this->call(LeaveTypeSeeder::class);
+        $this->call(IndianHolidaysSeeder::class);
+        $this->call(FaqSeeder::class);
+        $this->call(BankSeeder::class);
+        $this->call(LeadApisToCrmIntegrationsSeeder::class);
+        $this->call(LeadSourceTemplatesTableSeeder::class);
     }
 }

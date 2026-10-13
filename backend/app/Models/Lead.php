@@ -472,4 +472,39 @@ class Lead extends Model implements AuditableContract
     {
         return $this->hasOne(\App\Models\Accounts\Receipt::class, 'lead_id')->latestOfMany('receipt_date'); // or 'created_at' if receipt_date doesn't work well
     }
+
+    public function stars()
+    {
+        return $this->hasMany(LeadStar::class, 'lead_id');
+    }
+
+    public function favoritedBy()
+    {
+        return $this->belongsToMany(User::class, 'lead_stars', 'lead_id', 'user_id')->withTimestamps();
+    }
+
+    /**
+     * Notify all users who favorited this lead about an activity.
+     */
+    public function notifyFavoriters($activityType, $message, $performedByUser = null)
+    {
+        if (!$performedByUser) {
+            $performedByUser = \Illuminate\Support\Facades\Auth::user();
+        }
+
+        $performedByUserId = $performedByUser ? $performedByUser->id : null;
+        $performedByUserName = $performedByUser ? $performedByUser->name : 'System';
+
+        $usersToNotify = $this->favoritedBy()->where('user_id', '!=', $performedByUserId)->get();
+
+        if ($usersToNotify->isNotEmpty()) {
+            \Illuminate\Support\Facades\Notification::send($usersToNotify, new \App\Notifications\LeadActivityNotification(
+                $this,
+                $activityType,
+                $message,
+                $performedByUserId,
+                $performedByUserName
+            ));
+        }
+    }
 }

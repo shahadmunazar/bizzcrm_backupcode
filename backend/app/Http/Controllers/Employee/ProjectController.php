@@ -385,20 +385,7 @@ class ProjectController extends Controller
     {
         $boxData = $this->getBoxData();
         if ($boxData === false) return response()->json(['success' => false], 403);
-        
-        $query = \Illuminate\Support\Facades\DB::table('leads')
-            ->where('box_id', $boxData['box_id'])
-            ->select('id', 'name', 'last_name');
-
-        if ($request->has('q') && !empty($request->q)) {
-            $query->where(function($q) use ($request) {
-                $q->where('name', 'LIKE', '%' . $request->q . '%')
-                  ->orWhere('last_name', 'LIKE', '%' . $request->q . '%');
-            });
-        }
-
-        $data = $query->limit(20)->get();
-        
+        $data = \App\Models\Lead::where('box_id', $boxData['box_id'])->get();
         return response()->json(['success' => true, 'data' => $data]);
     }
 

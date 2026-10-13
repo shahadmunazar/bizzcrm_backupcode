@@ -14,23 +14,45 @@ class PackageFeatureSeeder extends Seeder
     public function run(): void
     {
         $features = [
+            // Core User & CRM Management
             'No of Users',
-            'Attendance',
-            'Custom Fields',
+            'User Management',
+            'Manage Targets & Performance',
+            'General Settings',
+
+            // Leads & Integrations
+            'All Leads Management',
             'Lead Integration',
+            'Lead System Settings',
+            'Custom Fields',
             'Reminders',
             'Meetings',
-            'Call Records',
             'One Click WhatsApp',
+
+            // Field Tracking & Operations
+            'Field Force Tracking',
+            'Location Tracking',
+            'Tour Plans',
+
+            // Telephony & Communications
+            'Call Records',
             'SMS Integration',
             'WhatsApp API Integration',
             'Auto Dialer',
-            'Field Force Tracking',
             'WhatsApp API Reporting',
+
+            // HRM & Workforce
+            'Attendance',
             'Leave Management',
             'Holidays',
             'Salary',
             'HR Documents',
+
+            // Accounts & Finance
+            'Products & Catalog',
+            'Finance & Expenses',
+
+            // Support
             'Chat Support',
             'Call / Video Call Support',
         ];

@@ -25,7 +25,7 @@ class NotificationController extends Controller
 
         $typeMap = [
             'task' => 'App\Notifications\TaskAssignedNotification',
-            'lead' => 'App\Notifications\NewLeadNotification',
+            'lead' => ['App\Notifications\NewLeadNotification', 'App\Notifications\LeadActivityNotification'],
             'export_ready' => 'App\Notifications\ExportReadyNotification',
             'missed_punch_out' => 'App\Notifications\MissedPunchOutNotification',
             'general' => 'App\Notifications\GeneralNotification',
@@ -44,6 +44,7 @@ class NotificationController extends Controller
          */
         $notificationClasses = $requestedTypes
             ->map(fn ($type) => $typeMap[$type] ?? null)
+            ->flatten()
             ->filter()
             ->values();
 
@@ -173,7 +174,7 @@ class NotificationController extends Controller
                 'App\Notifications\GeneralNotification'
             ])->update(['read_at' => now()]);
         } elseif ($type == 'lead') {
-            $unread->where('type', 'App\Notifications\NewLeadNotification')->update(['read_at' => now()]);
+            $unread->whereIn('type', ['App\Notifications\NewLeadNotification', 'App\Notifications\LeadActivityNotification'])->update(['read_at' => now()]);
         } else {
             $unread->update(['read_at' => now()]);
         }

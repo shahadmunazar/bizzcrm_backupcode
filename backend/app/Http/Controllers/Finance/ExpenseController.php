@@ -19,6 +19,21 @@ class ExpenseController extends Controller
 
     public function __construct(ExpenseService $expenseService)
     {
+        $this->middleware(function ($request, $next) {
+            $user = \Illuminate\Support\Facades\Auth::user();
+            if (!$user) return $next($request);
+
+            $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
+            $boxUser = \App\Models\BoxUser::where('user_id', $user->id)->first();
+            $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
+
+            if (!($isGlobalAdmin || $isBoxAdmin || \App\Helpers\PermissionHelper::hasModulePermission('finance_expenses', 'read'))) {
+                abort(403, 'You do not have permission to access this module.');
+            }
+
+            return $next($request);
+        });
+
         $this->expenseService = $expenseService;
     }
 
@@ -60,6 +75,15 @@ class ExpenseController extends Controller
      */
     public function store(Request $request, $box_slug)
     {
+        $user = auth()->user();
+        $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
+        $boxUser = \App\Models\BoxUser::where('user_id', $user->id)->first();
+        $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
+
+        if (!($isGlobalAdmin || $isBoxAdmin || \App\Helpers\PermissionHelper::hasModulePermission('finance_expenses', 'apply'))) {
+            return response()->json(['success' => false, 'message' => 'You do not have permission to apply for expenses.'], 403);
+        }
+
         $box = Box::where('slug', $box_slug)->firstOrFail();
 
         $validated = $request->validate([
@@ -87,6 +111,15 @@ class ExpenseController extends Controller
      */
     public function update(Request $request, $box_slug, $id)
     {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
+        $boxUser = \App\Models\BoxUser::where('user_id', $user->id)->first();
+        $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
+
+        if (!($isGlobalAdmin || $isBoxAdmin || \App\Helpers\PermissionHelper::hasModulePermission('finance_expenses', 'write'))) {
+            return response()->json(['success' => false, 'message' => 'You do not have permission to perform this action.'], 403);
+        }
+
         $box = Box::where('slug', $box_slug)->firstOrFail();
 
         $validated = $request->validate([
@@ -126,6 +159,15 @@ class ExpenseController extends Controller
      */
     public function destroy(Request $request, $box_slug, $id)
     {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
+        $boxUser = \App\Models\BoxUser::where('user_id', $user->id)->first();
+        $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
+
+        if (!($isGlobalAdmin || $isBoxAdmin || \App\Helpers\PermissionHelper::hasModulePermission('finance_expenses', 'delete'))) {
+            return response()->json(['success' => false, 'message' => 'You do not have permission to perform this action.'], 403);
+        }
+
         $box = Box::where('slug', $box_slug)->firstOrFail();
 
         try {

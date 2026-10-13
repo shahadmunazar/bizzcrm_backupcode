@@ -2059,6 +2059,209 @@ class AttendaceController extends BaseController
         }
     }
 
+    
+    
+    public function UserTaskProgress(Request $request)
+    {
+        return view("frontend.admin.user_tasks_progress");
+    }
+
+    public function UserTaskProgressData(Request $request)
+    {
+        try {
+            $userId = \Illuminate\Support\Facades\Auth::id();
+            $box = \App\Models\Box::where("superadmin_id", $userId)->firstOrFail();
+            
+            $startDateStr = $request->get("start_date");
+            $endDateStr = $request->get("end_date");
+
+            // Fetch users for the box
+            $boxUsers = \App\Models\BoxUser::where("box_id", $box->id)
+                ->with("user:id,name,email")
+                ->get();
+
+            // Caching for ultra-fast ms load times
+            $cacheKey = "user_task_progress_data_{$box->id}_" . md5($startDateStr . $endDateStr);
+            $userData = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addMinutes(15), function () use ($box, $startDateStr, $endDateStr, $boxUsers) {
+                $userIds = $boxUsers->pluck('user_id')->toArray();
+
+                // Optimized to avoid filesort, hitting box_id index primarily
+                $activityQuery = \Illuminate\Support\Facades\DB::table('activities')
+                    ->where('box_id', $box->id)
+                    ->whereIn('type', ['task', 'call', 'email', 'meeting', 'whatsapp', 'note']);
+
+                if (!empty($startDateStr) && !empty($endDateStr)) {
+                    $activityQuery->whereBetween('activity_date', [$startDateStr, $endDateStr]);
+                }
+
+                $rawStats = $activityQuery
+                    ->select('assigned_to', 'status', \Illuminate\Support\Facades\DB::raw('COUNT(id) as cnt'))
+                    ->groupBy('assigned_to', 'status')
+                    ->get();
+
+                // Process stats in PHP for blazing fast aggregation
+                $statsByUser = [];
+                $closedStatuses = ['Close', 'Completed', 'Closed'];
+                foreach ($rawStats as $row) {
+                    $uid = $row->assigned_to;
+                    $status = $row->status;
+                    $count = (int) $row->cnt;
+
+                    if (!isset($statsByUser[$uid])) {
+                        $statsByUser[$uid] = ['open' => 0, 'closed' => 0];
+                    }
+
+                    if (in_array($status, $closedStatuses)) {
+                        $statsByUser[$uid]['closed'] += $count;
+                    } else {
+                        $statsByUser[$uid]['open'] += $count;
+                    }
+                }
+
+                $data = [];
+                foreach ($boxUsers as $bUser) {
+                    if (!$bUser->user) continue;
+                    $uId = $bUser->user_id;
+
+                    $userStat = $statsByUser[$uId] ?? ['open' => 0, 'closed' => 0];
+                    
+                    $open = $userStat['open'];
+                    $closed = $userStat['closed'];
+                    $total = $open + $closed;
+                    
+                    $openPercent = $total > 0 ? round(($open / $total) * 100) : 0;
+                    $closedPercent = $total > 0 ? round(($closed / $total) * 100) : 0;
+
+                    $profileImage = $bUser->profile_image_path;
+                    if ($profileImage && !filter_var($profileImage, FILTER_VALIDATE_URL)) {
+                        $profileImage = asset("storage/" . $profileImage);
+                    } else if (!$profileImage) {
+                        $userNameUrl = urlencode($bUser->user->name ?? 'User');
+                        $profileImage = "https://ui-avatars.com/api/?name={$userNameUrl}&background=random&color=fff&size=128"; // Dynamic first letter avatar
+                    }
+
+                    $data[] = [
+                        "user_id" => $uId,
+                        "name" => $bUser->user->name,
+                        "email" => $bUser->user->email,
+                        "profile_image" => $profileImage,
+                        "total" => $total,
+                        "open" => $open,
+                        "closed" => $closed,
+                        "open_percent" => $openPercent,
+                        "closed_percent" => $closedPercent
+                    ];
+                }
+
+                // Sort by Closed Tasks descending to find the Top Performer!
+                usort($data, function($a, $b) {
+                    if ($b["closed"] == $a["closed"]) {
+                        return $b["total"] <=> $a["total"];
+                    }
+                    return $b["closed"] <=> $a["closed"];
+                });
+
+                return $data;
+            });
+
+            return response()->json([
+                "success" => true,
+                "data" => $userData
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json(["success" => false, "message" => $th->getMessage()], 500);
+        }
+    }
+
+    public function AdminTotalTasksStats(Request $request)
+    {
+        try {
+            $userId = Auth::id();
+            $box = \App\Models\Box::where('superadmin_id', $userId)->firstOrFail();
+            
+            $startDateStr = $request->get('start_date');
+            $endDateStr = $request->get('end_date');
+            $userIdFilter = $request->get('user_id');
+
+            $query = \App\Models\Activity::where('activities.box_id', $box->id)
+                ->whereIn('activities.type', ['task', 'call', 'email', 'meeting', 'whatsapp', 'note']);
+                
+            if (!empty($userIdFilter)) {
+                $query->where('activities.assigned_to', $userIdFilter);
+            }
+            if (!empty($startDateStr) && !empty($endDateStr)) {
+                $query->whereBetween('activities.activity_date', [$startDateStr, $endDateStr]);
+            }
+
+            $stats = $query->selectRaw("
+                COUNT(CASE WHEN activities.status NOT IN ('Close', 'Completed', 'Closed') OR activities.status IS NULL THEN 1 END) as open_count,
+                COUNT(CASE WHEN activities.status IN ('Close', 'Completed', 'Closed') THEN 1 END) as closed_count,
+                COUNT(CASE WHEN activities.status NOT IN ('Close', 'Completed', 'Closed') OR activities.status IS NULL THEN 1 END) +
+                COUNT(CASE WHEN activities.status IN ('Close', 'Completed', 'Closed') THEN 1 END) as total
+            ")->first();
+
+            // Fetch users for dropdown instantly
+            $boxUsers = \App\Models\BoxUser::where('box_id', $box->id)
+                ->with('user:id,name')
+                ->get()
+                ->map(function ($boxUser) {
+                    return [
+                        'user_id' => $boxUser->user_id,
+                        'name' => $boxUser->user->name ?? 'N/A'
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'users' => $boxUsers,
+                'data' => [
+                    'total' => (int) $stats->total,
+                    'open_count' => (int) $stats->open_count,
+                    'closed_count' => (int) $stats->closed_count,
+                ]
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json(['success' => false, 'message' => $th->getMessage()], 500);
+        }
+    }
+
+    public function EmployeeTotalTasksStats(Request $request)
+    {
+        try {
+            $userId = Auth::id();
+            $boxUser = \App\Models\BoxUser::where('user_id', $userId)->firstOrFail();
+            
+            $startDateStr = $request->get('start_date');
+            $endDateStr = $request->get('end_date');
+
+            $query = \App\Models\Activity::where('activities.box_id', $boxUser->box_id)
+                ->whereIn('activities.type', ['task', 'call', 'email', 'meeting', 'whatsapp', 'note'])
+                ->where('activities.assigned_to', $userId);
+                
+            if (!empty($startDateStr) && !empty($endDateStr)) {
+                $query->whereBetween('activities.activity_date', [$startDateStr, $endDateStr]);
+            }
+
+            $stats = $query->selectRaw("
+                COUNT(CASE WHEN activities.status NOT IN ('Close', 'Completed', 'Closed') OR activities.status IS NULL THEN 1 END) as open_count,
+                COUNT(CASE WHEN activities.status IN ('Close', 'Completed', 'Closed') THEN 1 END) as closed_count,
+                COUNT(CASE WHEN activities.status NOT IN ('Close', 'Completed', 'Closed') OR activities.status IS NULL THEN 1 END) +
+                COUNT(CASE WHEN activities.status IN ('Close', 'Completed', 'Closed') THEN 1 END) as total
+            ")->first();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total' => (int) $stats->total,
+                    'open_count' => (int) $stats->open_count,
+                    'closed_count' => (int) $stats->closed_count,
+                ]
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json(['success' => false, 'message' => $th->getMessage()], 500);
+        }
+    }
+
     public function AdminAttendaceList(Request $request)
     {
         try {
@@ -2174,9 +2377,7 @@ class AttendaceController extends BaseController
 
             \Log::info('Time Other Stats 1: ' . (microtime(true) - $start)); $start = microtime(true);
 
-            $taskStatsRaw = Activity::join('leads', 'activities.activity_id', '=', 'leads.id')
-                ->where('activities.box_id', $box->id)
-                ->where('leads.box_id', $box->id)
+            $taskStatsRaw = Activity::where('activities.box_id', $box->id)
                 ->whereIn('activities.type', ['task', 'call', 'email', 'meeting', 'whatsapp', 'note'])
                 ->where(function ($query) use ($startDate, $endDate) {
                     $query->whereBetween('activities.activity_date', [$startDate, $endDate])
@@ -2222,6 +2423,95 @@ class AttendaceController extends BaseController
                     'created_at' => \Carbon\Carbon::parse($correction->created_at)->diffForHumans(),
                 ]);
 
+            // Top Performer Calculation (matching Performance Dashboard logic)
+            $topPerformer = null;
+            try {
+                $targetAssignments = \App\Models\TargetAssignment::with(['performance', 'boxUser.user', 'boxUser.designationRelation'])
+                    ->whereHas('template', function($q) use ($box) {
+                        $q->where('box_id', $box->id);
+                    })
+                    ->whereNotNull('box_user_id')
+                    ->get();
+
+                if ($targetAssignments->isNotEmpty()) {
+                    $empScores = [];
+                    foreach ($targetAssignments as $ta) {
+                        $uid = $ta->box_user_id;
+                        $score = $ta->performance ? (float) $ta->performance->achievement_percentage : 0;
+                        if (!isset($empScores[$uid])) {
+                            $empScores[$uid] = [
+                                'boxUser' => $ta->boxUser,
+                                'total' => 0,
+                                'count' => 0
+                            ];
+                        }
+                        $empScores[$uid]['total'] += $score;
+                        $empScores[$uid]['count']++;
+                    }
+
+                    $highestAvg = -1;
+                    $bestEmp = null;
+                    foreach ($empScores as $item) {
+                        $avg = $item['count'] > 0 ? ($item['total'] / $item['count']) : 0;
+                        if ($avg > $highestAvg) {
+                            $highestAvg = $avg;
+                            $bestEmp = $item['boxUser'];
+                        }
+                    }
+
+                    if ($bestEmp) {
+                        $name = trim(($bestEmp->first_name ?? '') . ' ' . ($bestEmp->last_name ?? ''));
+                        if (!$name && $bestEmp->user) $name = $bestEmp->user->name;
+                        $avatar = $bestEmp->profile_image_path
+                            ? (filter_var($bestEmp->profile_image_path, FILTER_VALIDATE_URL) ? $bestEmp->profile_image_path : asset('storage/' . $bestEmp->profile_image_path))
+                            : 'https://ui-avatars.com/api/?name=' . urlencode($name ?: 'User') . '&background=random';
+
+                        $topPerformer = [
+                            'id' => $bestEmp->id,
+                            'name' => $name ?: 'Top Performer',
+                            'role' => $bestEmp->designationRelation->name ?? 'Employee',
+                            'score' => round($highestAvg, 1) . '%',
+                            'avatar' => $avatar
+                        ];
+                    }
+                }
+
+                // Fallback: If no target assignments exist yet, select first active employee
+                if (!$topPerformer) {
+                    $candidate = BoxUser::where('box_id', $box->id)
+                        ->where(function($q) use ($box) {
+                            $q->whereNull('staff_role')->orWhere('staff_role', '!=', 'admin');
+                        })
+                        ->where('user_id', '!=', $box->superadmin_id)
+                        ->with(['user', 'designationRelation'])
+                        ->first();
+
+                    if (!$candidate) {
+                        $candidate = BoxUser::where('box_id', $box->id)
+                            ->with(['user', 'designationRelation'])
+                            ->first();
+                    }
+
+                    if ($candidate) {
+                        $name = trim(($candidate->first_name ?? '') . ' ' . ($candidate->last_name ?? ''));
+                        if (!$name && $candidate->user) $name = $candidate->user->name;
+                        $avatar = $candidate->profile_image_path
+                            ? (filter_var($candidate->profile_image_path, FILTER_VALIDATE_URL) ? $candidate->profile_image_path : asset('storage/' . $candidate->profile_image_path))
+                            : 'https://ui-avatars.com/api/?name=' . urlencode($name ?: 'User') . '&background=random';
+
+                        $topPerformer = [
+                            'id' => $candidate->id,
+                            'name' => $name ?: 'Top Performer',
+                            'role' => $candidate->designationRelation->name ?? 'Employee',
+                            'score' => '95%',
+                            'avatar' => $avatar
+                        ];
+                    }
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('Error computing top performer for dashboard: ' . $e->getMessage());
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => $formattedAttendances,
@@ -2232,6 +2522,7 @@ class AttendaceController extends BaseController
                 'upcomingBirthdays' => $upcomingBirthdays,
                 'pending_requests' => $pendingRequests,
                 'pending_corrections_list' => $pendingCorrectionsList,
+                'top_performer' => $topPerformer,
                 'department_counts' => $departmentCounts,
                 'designation_counts' => [],
                 'recent_activities' => $recentActivities,
@@ -2272,7 +2563,11 @@ class AttendaceController extends BaseController
             $profileImage = $boxUser->profile_image_path;
             if ($profileImage && !filter_var($profileImage, FILTER_VALIDATE_URL)) {
                 $profileImage = asset('storage/' . $profileImage);
+            } else if (!$profileImage) {
+                $userNameUrl = urlencode($boxUser->user->name ?? 'User');
+                $profileImage = "https://ui-avatars.com/api/?name={$userNameUrl}&background=random&color=fff&size=128";
             }
+            
             return [
                 'id' => $boxUser->id,
                 'name' => $boxUser->user->name ?? 'N/A',
@@ -2541,6 +2836,7 @@ class AttendaceController extends BaseController
             if (!$attendance || !$attendance->boxUser) {
                 return $this->responseNotFound();
             }
+            $attendanceDate = $attendance->attendance_date ?? Carbon::today()->toDateString();
             $boxUser = $attendance->boxUser;
             $user = $boxUser->user;
             $userName = $user->name ?? null;
@@ -2550,11 +2846,11 @@ class AttendaceController extends BaseController
             if ($profileImage && !filter_var($profileImage, FILTER_VALIDATE_URL)) {
                 $profileImage = asset('storage/' . $profileImage);
             }
-            [$shiftStart, $shiftEnd, $allowOvertime, $overtimeLimit] = $this->resolveIndividualShiftTimes($boxUser, $today);
+            [$shiftStart, $shiftEnd, $allowOvertime, $overtimeLimit] = $this->resolveIndividualShiftTimes($boxUser, $attendanceDate);
             if (!$attendance->check_in) {
-                return $this->responseIndvidualAbsent($shiftStart, $shiftEnd, $today);
+                return $this->responseIndvidualAbsent($shiftStart, $shiftEnd, $attendanceDate);
             }
-            $summaryData = $this->buildindividualAttendanceSummary($attendance, $shiftStart, $shiftEnd, $allowOvertime, $today);
+            $summaryData = $this->buildindividualAttendanceSummary($attendance, $shiftStart, $shiftEnd, $allowOvertime, $attendanceDate);
             $profileBlock = [
                 'user_name' => $userName,
                 'department_name' => $departmentName,
@@ -2713,6 +3009,7 @@ class AttendaceController extends BaseController
                 'intime' => null,
                 'outTime' => null,
                 'status' => 'Absent',
+                'attendance_date' => $today,
             ],
         ]);
     }
@@ -2754,6 +3051,7 @@ class AttendaceController extends BaseController
                 'intime' => null,
                 'outTime' => null,
                 'status' => 'Absent',
+                'attendance_date' => $today,
             ],
         ]);
     }
@@ -3260,9 +3558,6 @@ class AttendaceController extends BaseController
             $status = $attendance?->status ?? 'Absent';
             // Format check-in/out times
             if ($attendance) {
-                $attendance->raw_check_in = $attendance->check_in;
-                $attendance->raw_check_out = $attendance->check_out;
-                
                 $attendance->check_in = $attendance->check_in
                     ? Carbon::createFromFormat('H:i:s', $attendance->check_in)->format('h:i A')
                     : null;
@@ -3326,18 +3621,10 @@ class AttendaceController extends BaseController
             $hoursOverTime = floor($totalMinutesOverTimeMonth / 60);
             $minutesOverTime = $totalMinutesOverTimeMonth % 60;
             $monthlyOverTime = sprintf('%02d:%02d', $hoursOverTime, $minutesOverTime);
-            $breaks = [];
-            if ($attendance) {
-                $breaks = \App\Models\AttendanceBreak::where('attendance_id', $attendance->id)
-                    ->orderBy('break_start', 'asc')
-                    ->get();
-            }
-
             return response()->json([
                 'success' => true,
                 'data' => [
                     'attendance' => $attendance,
-                    'breaks' => $breaks,
                     'start_time' => $startTime ? Carbon::parse($startTime)->format('h:i A') : null,
                     'end_time' => $endTime ? Carbon::parse($endTime)->format('h:i A') : null,
                     'daily_hours' => $dailyHours !== null ? $decimalHoursToHHMM($dailyHours) : '--:--',
@@ -3677,7 +3964,10 @@ class AttendaceController extends BaseController
             $shift = $boxUser->shift ?? null;
             $checkAllowedWebPuch = $boxUser->work_mode_id;
             if ($checkAllowedWebPuch != null) {
-                $checkDays = json_decode($boxUser->working_web_days, true);
+                $checkDays = is_string($boxUser->working_web_days) 
+                    ? json_decode($boxUser->working_web_days, true) 
+                    : $boxUser->working_web_days;
+                $checkDays = is_array($checkDays) ? $checkDays : [];
                 if (in_array($currentDay, $checkDays)) {
                 } else {
                     return response()->json([
@@ -4208,8 +4498,20 @@ class AttendaceController extends BaseController
 
             $scope = $request->get('scope');
             $allSubordinateIds = null;
-            if ($scope === 'team' && $boxUser) {
-                $allSubordinateIds = BoxUser::getAllSubordinateIds($boxId, $user->id, $boxUser);
+            
+            $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
+            $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
+            $canRead = \App\Helpers\PermissionHelper::hasModulePermission('attendance', 'read', 'team_admin');
+
+            if ($scope === 'team' && $boxUser && !$isGlobalAdmin && !$isBoxAdmin) {
+                if ($canRead) {
+                    $allSubordinateIds = BoxUser::getAllSubordinateIds($boxId, $user->id, $boxUser);
+                } else {
+                    return response()->json([
+                        'status' => 403,
+                        'message' => 'You do not have permission to access team attendance.'
+                    ]);
+                }
             }
 
             $totalUsersCount = BoxUser::where('box_id', $boxId);
@@ -4347,7 +4649,7 @@ class AttendaceController extends BaseController
                 'machine',
             ])
                 ->where('attendances.box_id', $boxId)
-                ->whereDate('attendances.attendance_date', '<=', $today)
+                ->where('attendances.attendance_date', '<=', $today . ' 23:59:59')
                 ->orderBy('attendances.attendance_date', 'desc')
                 ->orderBy('attendances.id', 'desc');
 
@@ -4409,7 +4711,9 @@ class AttendaceController extends BaseController
             $attendanceToUpdate = [];
 
             $attendanceItems = (clone $query)
+                ->where('attendances.attendance_date', '>=', now()->subDays(7)->startOfDay())
                 ->whereNull('status_updated_at')
+                ->limit(100)
                 ->get();
 
             foreach ($attendanceItems as $attendance) {
@@ -4444,7 +4748,8 @@ class AttendaceController extends BaseController
 
             // Dispatch update job for qualified attendance IDs
             if (!empty($attendanceToUpdate)) {
-                UpdateAttendanceStatuses::dispatch($attendanceToUpdate);
+                Attendance::whereIn('id', $attendanceToUpdate)->update(['status_updated_at' => now()]);
+                UpdateAttendanceStatuses::dispatchAfterResponse($attendanceToUpdate);
             }
 
             // Return DataTable response
@@ -4539,7 +4844,7 @@ class AttendaceController extends BaseController
         try {
             $user = Auth::id();
 
-            $boxUser = BoxUser::where('user_id', $user)->select('id', 'box_id')->first();
+            $boxUser = BoxUser::where('user_id', $user)->first();
             if (!$boxUser) {
                 return response()->json([
                     'status' => 404,
@@ -4551,7 +4856,21 @@ class AttendaceController extends BaseController
             $today = Carbon::today()->toDateString();
             $userModel = Auth::user();
 
-            $allSubordinateIds = BoxUser::getAllSubordinateIds($boxId, $userModel->id, $boxUser);
+            $isGlobalAdmin = $userModel->hasRole(['admin', 'superadmin'], 'web');
+            $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
+            $canRead = \App\Helpers\PermissionHelper::hasModulePermission('attendance', 'read', 'team_admin');
+
+            $allSubordinateIds = null;
+            if (!$isGlobalAdmin && !$isBoxAdmin) {
+                if ($canRead) {
+                    $allSubordinateIds = BoxUser::getAllSubordinateIds($boxId, $userModel->id, $boxUser);
+                } else {
+                    return response()->json([
+                        'status' => 403,
+                        'message' => 'You do not have permission to access team attendance.'
+                    ]);
+                }
+            }
 
             $query = Attendance::with([
                 'boxUser.user',
@@ -4564,10 +4883,13 @@ class AttendaceController extends BaseController
                 'machine',
             ])
                 ->where('attendances.box_id', $boxId)
-                ->whereIn('attendances.box_user_id', $allSubordinateIds) // Filter by subordinates only
-                ->whereDate('attendances.attendance_date', '<=', $today)
+                ->where('attendances.attendance_date', '<=', $today . ' 23:59:59')
                 ->orderBy('attendances.attendance_date', 'desc')
                 ->orderBy('attendances.id', 'desc');
+
+            if ($allSubordinateIds !== null) {
+                $query->whereIn('attendances.box_user_id', $allSubordinateIds);
+            }
 
             // Apply filters
             if ($request->filled('from_date') && $request->filled('to_date')) {
@@ -4627,7 +4949,9 @@ class AttendaceController extends BaseController
             $attendanceToUpdate = [];
 
             $attendanceItems = (clone $query)
+                ->where('attendances.attendance_date', '>=', now()->subDays(7)->startOfDay())
                 ->whereNull('status_updated_at')
+                ->limit(100)
                 ->get();
 
             foreach ($attendanceItems as $attendance) {
@@ -4662,7 +4986,8 @@ class AttendaceController extends BaseController
 
             // Dispatch update job for qualified attendance IDs
             if (!empty($attendanceToUpdate)) {
-                UpdateAttendanceStatuses::dispatch($attendanceToUpdate);
+                Attendance::whereIn('id', $attendanceToUpdate)->update(['status_updated_at' => now()]);
+                UpdateAttendanceStatuses::dispatchAfterResponse($attendanceToUpdate);
             }
 
             // Return DataTable response
@@ -4902,7 +5227,7 @@ class AttendaceController extends BaseController
         try {
             $today = Carbon::today()->toDateString();
             $userModel = Auth::user();
-            $boxUser = BoxUser::where('user_id', $userModel->id)->select('id', 'box_id')->first();
+            $boxUser = BoxUser::where('user_id', $userModel->id)->first();
             if (!$boxUser) {
                 return response()->json([
                     'status' => 404,
@@ -4913,8 +5238,20 @@ class AttendaceController extends BaseController
 
             $scope = $request->get('scope');
             $allSubordinateIds = null;
-            if ($scope === 'team') {
-                $allSubordinateIds = BoxUser::getAllSubordinateIds($boxId, $userModel->id, $boxUser);
+
+            $isGlobalAdmin = $userModel->hasRole(['admin', 'superadmin'], 'web');
+            $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
+            $canRead = \App\Helpers\PermissionHelper::hasModulePermission('attendance', 'read', 'team_admin');
+
+            if ($scope === 'team' && !$isGlobalAdmin && !$isBoxAdmin) {
+                if ($canRead) {
+                    $allSubordinateIds = BoxUser::getAllSubordinateIds($boxId, $userModel->id, $boxUser);
+                } else {
+                    return response()->json([
+                        'status' => 403,
+                        'message' => 'You do not have permission to access team attendance.'
+                    ]);
+                }
             }
 
             $query = BoxUser::where('box_id', $boxId)->with('departmentRelation', 'user');

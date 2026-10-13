@@ -399,10 +399,10 @@ class ShiftController extends BaseController
         try {
             $rules = [
                 'shift_id'              => 'required|integer|exists:shifts,id',
-                'code'                  => 'nullable|string|max:255',
-                'shift_name'            => 'nullable|string|max:255',
-                'in_time'               => ['nullable', 'string'],
-                'out_time'              => ['nullable', 'string'],
+                'shift_code'            => 'nullable|string|max:255',
+                'shift_type'            => 'nullable|string|max:255',
+                'shift_in_time'         => ['nullable', 'string'],
+                'shift_out_time'        => ['nullable', 'string'],
                 'shift_hours'           => ['nullable', 'string'],
                 'shift_enabled'         => 'nullable|boolean',
                 'rest_enabled'          => 'nullable|boolean',
@@ -414,8 +414,8 @@ class ShiftController extends BaseController
                 'short_break_in'        => ['nullable', 'string'],
                 'short_break_hours'     => ['nullable', 'string'],
                 'short_break_enabled_2' => 'nullable|boolean',
-                'short_break_out_2'     => ['nullable', 'string'],
-                'short_break_in_2'      => ['nullable', 'string'],
+                'short_break_outs_2'    => ['nullable', 'string'],
+                'short_break_ins_2'     => ['nullable', 'string'],
                 'short_break_hours_2'   => ['nullable', 'string'],
                 'half_day_enabled'      => 'nullable|boolean',
                 'half_day_start_time'   => ['nullable', 'string'],
@@ -424,12 +424,12 @@ class ShiftController extends BaseController
                 'absent_below'          => ['nullable', 'string'],
                 'absent_below_hours'    => 'nullable|integer|min:0',
                 'absent_below_minutes'  => 'nullable|integer|min:0|max:59',
-                'half_day_below'        => ['nullable', 'string'],
-                'half_day_below_hours'  => 'nullable|integer|min:0',
-                'half_day_below_minutes'=> 'nullable|integer|min:0|max:59',
-                'short_leave_below'     => ['nullable', 'string'],
-                'short_leave_below_hours' => 'nullable|integer|min:0',
-                'short_leave_below_minutes' => 'nullable|integer|min:0|max:59',
+                'half_day_limit'        => ['nullable', 'string'],
+                'half_day_limit_hours'  => 'nullable|integer|min:0',
+                'half_day_limit_minutes'=> 'nullable|integer|min:0|max:59',
+                'short_leave_limit'     => ['nullable', 'string'],
+                'short_leave_limit_hours' => 'nullable|integer|min:0',
+                'short_leave_limit_minutes' => 'nullable|integer|min:0|max:59',
                 'overtime_allowed'      => ['nullable', 'string'],
                 'weekly_off_1'          => 'nullable|in:Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,null',
                 'weekly_off_2'          => 'nullable|in:Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,null',
@@ -466,8 +466,8 @@ class ShiftController extends BaseController
             };
 
             $requestData['absent_below'] = $combineThreshold('absent_below');
-            $requestData['half_day_below'] = $combineThreshold('half_day_below');
-            $requestData['short_leave_below'] = $combineThreshold('short_leave_below');
+            $requestData['half_day_limit'] = $combineThreshold('half_day_limit');
+            $requestData['short_leave_limit'] = $combineThreshold('short_leave_limit');
 
             $validator = Validator::make($requestData, $rules);
 
@@ -515,10 +515,10 @@ class ShiftController extends BaseController
 
             // Prepare data for update
             $data = [
-                'code'                  => $validated['code'] ?? null,
-                'shift_name'            => $validated['shift_name'] ?? null,
-                'in_time'               => $formatTime($validated['in_time'] ?? null),
-                'out_time'              => $formatTime($validated['out_time'] ?? null),
+                'code'                  => $validated['shift_code'] ?? null,
+                'shift_name'            => $validated['shift_type'] ?? null,
+                'in_time'               => $formatTime($validated['shift_in_time'] ?? null),
+                'out_time'              => $formatTime($validated['shift_out_time'] ?? null),
                 'shift_hours'           => $validated['shift_hours'] ?? null,
                 'shift_enabled'         => $request->input('shift_enabled') == 1,
                 'rest_enabled'          => $request->input('rest_enabled') == 1,
@@ -530,16 +530,16 @@ class ShiftController extends BaseController
                 'short_break_in'        => $formatTime($validated['short_break_in'] ?? null),
                 'short_break_hours'     => $validated['short_break_hours'] ?? null,
                 'short_break_enabled_2' => $request->input('short_break_enabled_2') == 1,
-                'short_break_out_2'     => $formatTime($validated['short_break_out_2'] ?? null),
-                'short_break_in_2'      => $formatTime($validated['short_break_in_2'] ?? null),
+                'short_break_out_2'     => $formatTime($validated['short_break_outs_2'] ?? null),
+                'short_break_in_2'      => $formatTime($validated['short_break_ins_2'] ?? null),
                 'short_break_hours_2'   => $validated['short_break_hours_2'] ?? null,
                 'half_day_enabled'      => $request->input('half_day_enabled') == 1,
                 'half_day_start_time'   => $formatTime($validated['half_day_start_time'] ?? null),
                 'half_day_end_time'     => $formatTime($validated['half_day_end_time'] ?? null),
                 'half_day_hours'        => $validated['half_day_hours'] ?? null,
                 'absent_below'          => $validated['absent_below'] ?? null,
-                'half_day_below'        => $validated['half_day_below'] ?? null,
-                'short_leave_below'     => $validated['short_leave_below'] ?? null,
+                'half_day_below'        => $validated['half_day_limit'] ?? null,
+                'short_leave_below'     => $validated['short_leave_limit'] ?? null,
                 'overtime_allowed'      => $validated['overtime_allowed'] ?? null,
                 'weekly_off_1'          => (! empty($validated['weekly_off_1']) && $validated['weekly_off_1'] !== 'null') ? $validated['weekly_off_1'] : null,
                 'weekly_off_2'          => (! empty($validated['weekly_off_2']) && $validated['weekly_off_2'] !== 'null') ? $validated['weekly_off_2'] : null,

@@ -13,44 +13,99 @@ class ActivityTypeDataSeeder extends Seeder
     {
         Schema::disableForeignKeyConstraints();
 
-        $activityTypes = DB::connection('bizzcrm_migrate')->table('activity_types')->get();
-        $this->command->info('Starting Activity Types Seeder from DB...');
-        $startTime = microtime(true);
+        $boxes = DB::table('boxes')->get();
+        $this->command->info('Starting Activity Types Seeder with default types and legacy statuses...');
 
-        $chunk = [];
-        $processed = 0;
+        $baseDefaultActivityTypes = ['New', 'Follow Up'];
+        $baseSpecial8ActivityTypes = ['New order', 'No order', 'New Payments', 'General Discussion', 'Order Follow up', 'Others', 'Payment Follow Up', 'Check Out'];
 
-        foreach ($activityTypes as $item) {
-            $row = (array) $item;
-            $processed++;
+        foreach ($boxes as $box) {
+            // Fetch legacy statuses for this box to use as activity types
+            $legacyStatuses = DB::connection('bizzcrm_migrate')
+                ->table('activity_statuses')
+                ->where('box_id', $box->id)
+                ->pluck('name')
+                ->toArray();
+                
+            // Merge and get unique types (Legacy first, case-insensitive deduplication)
+            $boxDefaultActivityTypes = [];
+            $boxSpecial8ActivityTypes = [];
             
-            $mappedRow = [
-                'id' => $row['id'] ?? null,
-                'activity_type' => $row['name'] ?? null,
-                'target_type' => 'both',
-                'status' => 1,
-                'created_at' => $row['created_at'] ?? null,
-                'updated_at' => $row['updated_at'] ?? null,
-            ];
+            $seenDefault = [];
+            foreach (array_merge($legacyStatuses, $baseDefaultActivityTypes) as $type) {
+                $type = trim($type);
+                if (empty($type)) continue;
+                $lower = strtolower($type);
+                if (!in_array($lower, $seenDefault)) {
+                    $seenDefault[] = $lower;
+                    $boxDefaultActivityTypes[] = $type;
+                }
+            }
             
-            $chunk[] = $mappedRow;
+            $seenSpecial8 = [];
+            foreach (array_merge($legacyStatuses, $baseSpecial8ActivityTypes) as $type) {
+                $type = trim($type);
+                if (empty($type)) continue;
+                $lower = strtolower($type);
+                if (!in_array($lower, $seenSpecial8)) {
+                    $seenSpecial8[] = $lower;
+                    $boxSpecial8ActivityTypes[] = $type;
+                }
+            }
 
-            if (count($chunk) >= 500) {
-                DB::transaction(function () use (&$chunk) {
-                    DB::table('activity_types')->insertOrIgnore($chunk);
-                });
-                $chunk = [];
+            $settings = DB::table('calls')->where('box_id', $box->id)->get();
+            
+            foreach ($settings as $setting) {
+                // Insert Leads Activity Types
+                foreach ($boxDefaultActivityTypes as $type) {
+                    if (empty($type)) continue;
+
+                    $exists = DB::table('activity_types')
+                        ->where('box_id', $box->id)
+                        ->where('activity_setting_id', $setting->id)
+                        ->where('activity_type', $type)
+                        ->exists();
+
+                    if (!$exists) {
+                        DB::table('activity_types')->insert([
+                            'box_id' => $box->id,
+                            'activity_setting_id' => $setting->id,
+                            'activity_type' => $type,
+                            'status' => 1,
+                            'target_type' => 'leads',
+                            'created_at' => \Carbon\Carbon::now(),
+                            'updated_at' => \Carbon\Carbon::now(),
+                        ]);
+                    }
+                }
+                
+                // Insert Customers Activity Types
+                if (in_array($setting->name, ['Call', 'Meeting'])) {
+                    foreach ($boxSpecial8ActivityTypes as $type) {
+                        if (empty($type)) continue;
+
+                        $exists = DB::table('activity_types')
+                            ->where('box_id', $box->id)
+                            ->where('activity_setting_id', $setting->id)
+                            ->where('activity_type', $type)
+                            ->exists();
+
+                        if (!$exists) {
+                            DB::table('activity_types')->insert([
+                                'box_id' => $box->id,
+                                'activity_setting_id' => $setting->id,
+                                'activity_type' => $type,
+                                'status' => 1,
+                                'target_type' => 'customers',
+                                'created_at' => \Carbon\Carbon::now(),
+                                'updated_at' => \Carbon\Carbon::now(),
+                            ]);
+                        }
+                    }
+                }
             }
         }
 
-        if (count($chunk) > 0) {
-            DB::transaction(function () use (&$chunk) {
-                DB::table('activity_types')->insertOrIgnore($chunk);
-            });
-        }
-
-        $executionTime = round(microtime(true) - $startTime, 2);
-        $this->command->info("Processed {$processed} activity types in {$executionTime} seconds.");
         Schema::enableForeignKeyConstraints();
     }
 }

@@ -172,7 +172,7 @@ class ActivityController extends Controller
         $validator = Validator::make($request->all(), [
             'lead_id'            => 'required|integer',
             'type'               => 'required|in:call,email,meeting,whatsapp,note,general',
-            'activity_type'      => 'nullable|string',
+            'activity_type'      => 'nullable|integer',
             'activity_status_id' => 'nullable|integer',
             'subject'            => 'nullable|string|max:255',
             'description'        => 'nullable|string',
@@ -408,6 +408,26 @@ class ActivityController extends Controller
 
             $activity->load(['assignedUser:id,name', 'addedByUser:id,name', 'activityStatus']);
 
+            // Notify favoriters
+            if (isset($lead) && $lead) {
+                $actType = $request->type ?? 'activity';
+                
+                $messageParts = [];
+                if ($activity->description) {
+                    $messageParts[] = 'Note: ' . $activity->description;
+                }
+                if (!empty($statusDescriptionParts)) {
+                    $messageParts[] = implode(", ", $statusDescriptionParts);
+                }
+                if (!empty($assigneeDescriptionParts)) {
+                    $messageParts[] = implode(", ", $assigneeDescriptionParts);
+                }
+
+                $actSubject = !empty($messageParts) ? implode(" | ", $messageParts) : ($subject ?? 'New activity added');
+                
+                $lead->notifyFavoriters($actType, $actSubject);
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Activity created successfully.',
@@ -426,7 +446,7 @@ class ActivityController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'type'               => 'sometimes|in:call,email,meeting,whatsapp,note,general',
-            'activity_type'      => 'nullable|string',
+            'activity_type'      => 'nullable|integer',
             'activity_status_id' => 'nullable|integer',
             'subject'            => 'nullable|string|max:255',
             'activity_date'      => 'sometimes|date',
@@ -848,6 +868,7 @@ class ActivityController extends Controller
                 $data['activity_settings'] = $settings;
 
                 $data['activity_types'] = ActivityType::where('box_id', $boxId)
+                    ->whereIn('target_type', ['leads'])
                     ->where('status', 1)
                     ->select('id', 'activity_setting_id', 'activity_type as title')
                     ->get()
@@ -896,10 +917,15 @@ class ActivityController extends Controller
             $boxId = $this->resolveBoxId();
             if (!$boxId) return $this->errorResponse('Box not found.', 404);
 
-            $items = $modelClass::where('box_id', $boxId)
+            $query = $modelClass::where('box_id', $boxId)
                 ->where($dbColumn, $id)
-                ->where('status', 1)
-                ->select('id', "$titleColumn as title", 'created_at')
+                ->where('status', 1);
+
+            if (str_contains($modelClass, 'ActivityType')) {
+                $query->where('target_type', 'leads');
+            }
+
+            $items = $query->select('id', "$titleColumn as title", 'created_at')
                 ->orderBy($titleColumn)
                 ->get()
                 ->map(fn($item) => $item->setAttribute('created_date', $item->created_at?->format('d M Y, h:i a')));

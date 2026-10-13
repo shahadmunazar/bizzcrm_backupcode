@@ -18,6 +18,21 @@ class AllowanceTypeController extends Controller
 
     public function __construct(AllowanceTypeService $allowanceTypeService)
     {
+        $this->middleware(function ($request, $next) {
+            $user = \Illuminate\Support\Facades\Auth::user();
+            if (!$user) return $next($request);
+
+            $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
+            $boxUser = \App\Models\BoxUser::where('user_id', $user->id)->first();
+            $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
+
+            if (!($isGlobalAdmin || $isBoxAdmin || \App\Helpers\PermissionHelper::hasModulePermission('finance_settings_allowance_types', 'read'))) {
+                abort(403, 'You do not have permission to access this module.');
+            }
+
+            return $next($request);
+        });
+
         $this->allowanceTypeService = $allowanceTypeService;
     }
 
@@ -57,6 +72,15 @@ class AllowanceTypeController extends Controller
      */
     public function store(Request $request, $box_slug)
     {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
+        $boxUser = \App\Models\BoxUser::where('user_id', $user->id)->first();
+        $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
+
+        if (!($isGlobalAdmin || $isBoxAdmin || \App\Helpers\PermissionHelper::hasModulePermission('finance_settings_allowance_types', 'create'))) {
+            return response()->json(['success' => false, 'message' => 'You do not have permission to perform this action.'], 403);
+        }
+
         $box = Box::where('slug', $box_slug)->firstOrFail();
         
         $validated = $request->validate([
@@ -83,6 +107,15 @@ class AllowanceTypeController extends Controller
      */
     public function update(Request $request, $box_slug, $id)
     {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
+        $boxUser = \App\Models\BoxUser::where('user_id', $user->id)->first();
+        $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
+
+        if (!($isGlobalAdmin || $isBoxAdmin || \App\Helpers\PermissionHelper::hasModulePermission('finance_settings_allowance_types', 'write'))) {
+            return response()->json(['success' => false, 'message' => 'You do not have permission to perform this action.'], 403);
+        }
+
         $box = Box::where('slug', $box_slug)->firstOrFail();
 
         $validated = $request->validate([
@@ -109,6 +142,15 @@ class AllowanceTypeController extends Controller
      */
     public function destroy(Request $request, $box_slug, $id)
     {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
+        $boxUser = \App\Models\BoxUser::where('user_id', $user->id)->first();
+        $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
+
+        if (!($isGlobalAdmin || $isBoxAdmin || \App\Helpers\PermissionHelper::hasModulePermission('finance_settings_allowance_types', 'delete'))) {
+            return response()->json(['success' => false, 'message' => 'You do not have permission to perform this action.'], 403);
+        }
+
         $box = Box::where('slug', $box_slug)->firstOrFail();
         $this->allowanceTypeService->delete($box, $id);
 
@@ -125,6 +167,15 @@ class AllowanceTypeController extends Controller
      */
     public function toggleStatus(Request $request, $box_slug, $id)
     {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
+        $boxUser = \App\Models\BoxUser::where('user_id', $user->id)->first();
+        $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
+
+        if (!($isGlobalAdmin || $isBoxAdmin || \App\Helpers\PermissionHelper::hasModulePermission('finance_settings_allowance_types', 'write'))) {
+            return response()->json(['success' => false, 'message' => 'You do not have permission to perform this action.'], 403);
+        }
+
         $box = Box::where('slug', $box_slug)->firstOrFail();
         $this->allowanceTypeService->toggleStatus($box, $id);
         

@@ -123,7 +123,7 @@
             <div class="row">
 
                 <!-- Widget Info -->
-                <div class="col-lg-8 d-flex">
+                <div class="col-lg-12 d-flex">
                     <div class="row flex-fill">
                         <div class="col-md-3 col-6 d-flex">
                             <div class="card flex-fill">
@@ -214,32 +214,7 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- <div class="col-md-3 d-flex">
-                            <div class="card flex-fill">
-                                <div class="card-body">
-                                    <span class="avatar rounded-circle bg-purple mb-2">
-                                        <i class="ti ti-moneybag fs-16"></i>
-                                    </span>
-                                    <h6 class="fs-13 fw-medium text-default mb-1">Earnings </h6>
-                                    <h3 class="mb-3">$21445 <span class="fs-12 fw-medium text-success"><i
-                                                class="fa-solid fa-caret-up me-1"></i>+10.2% </span></h3>
-                                    <a href="expenses.html" class="link-default">View All </a>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3 d-flex">
-                            <div class="card flex-fill">
-                                <div class="card-body">
-                                    <span class="avatar rounded-circle bg-danger mb-2">
-                                        <i class="ti ti-browser fs-16"></i>
-                                    </span>
-                                    <h6 class="fs-13 fw-medium text-default mb-1">Profit This Week </h6>
-                                    <h3 class="mb-3">$5,544 <span class="fs-12 fw-medium text-success"><i
-                                                class="fa-solid fa-caret-up me-1"></i>+2.1% </span></h3>
-                                    <a href="purchase-transaction.html" class="link-default">View All </a>
-                                </div>
-                            </div>
-                        </div> -->
+                        
                         <div class="col-md-3 col-6 d-flex">
                             <div class="card flex-fill">
                                 <div class="card-body">
@@ -253,25 +228,69 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- <div class="col-md-3 d-flex">
-                            <div class="card flex-fill">
-                                <div class="card-body">
-                                    <span class="avatar rounded-circle bg-dark mb-2">
-                                        <i class="ti ti-user-star fs-16"></i>
-                                    </span>
-                                    <h6 class="fs-13 fw-medium text-default mb-1">New Hire </h6>
-                                    <h3 class="mb-3">45/48 <span class="fs-12 fw-medium text-danger"><i
-                                                class="fa-solid fa-caret-down me-1"></i>-11.2% </span></h3>
-                                    <a href="candidates.html" class="link-default">View All </a>
-                                </div>
-                            </div>
-                        </div> -->
                     </div>
                 </div>
+
+                
+                <!-- ALL TIME TOTAL TASKS -->
+                <div class="col-lg-6 d-flex">
+                    <div class="card flex-fill">
+                        <div class="card-header border-bottom-0 pb-0 d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <span class="avatar rounded-circle bg-danger me-2">
+                                    <i class="ti ti-checklist fs-16 text-white"></i>
+                                </span>
+                                <h6 class="fs-13 fw-medium text-default mb-0">Total Tasks</h6>
+                            </div>
+                            <div class="dropdown">
+                                <a href="#" class="text-muted" data-bs-toggle="dropdown" aria-expanded="false"><i class="ti ti-filter"></i></a>
+                                <div class="dropdown-menu dropdown-menu-end p-2" style="width: 250px;">
+                                    <div class="mb-2">
+                                        <label class="form-label fs-12">User</label>
+                                        <select class="form-select form-select-sm" id="widgetUserFilter">
+                                            <option value="">All Users</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label fs-12">Date Range</label>
+                                        <input type="text" class="form-control form-control-sm" id="widgetDateFilter" placeholder="Select Date Range">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body pt-0 mt-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fs-12 fw-medium text-muted">Open Tasks (<span id="widget_open_tasks_text">0</span>)</span>
+                                <span class="fs-12 text-muted" id="widget_open_tasks_percent">0%</span>
+                            </div>
+                            <div class="progress progress-sm mb-3">
+                                <div class="progress-bar bg-success" id="widget_open_tasks_bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fs-12 fw-medium text-muted">Closed Tasks (<span id="widget_closed_tasks_text">0</span>)</span>
+                                <span class="fs-12 text-muted" id="widget_closed_tasks_percent">0%</span>
+                            </div>
+                            <div class="progress progress-sm mb-3">
+                                <div class="progress-bar bg-danger" id="widget_closed_tasks_bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mb-2 mt-3 pt-2 border-top">
+                                <h6 class="mb-0 fs-14 fw-bold text-dark">Total Tasks</h6>
+                                <h6 class="mb-0 fs-14 fw-bold text-danger" id="widget_all_time_total_tasks">0</h6>
+                            </div>
+                            
+                            <div class="text-center mt-3">
+                                <a href="{{ route('users.task.progress', ['box_slug' => request()->route('box_slug')]) }}" class="link-default fw-medium">View All Users</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- /ALL TIME TOTAL TASKS -->
                 <!-- /Widget Info -->
 
                 <!-- Employees By Department -->
-                <div class="col-lg-4 d-flex">
+                <div class="col-lg-6 d-flex">
                     <div class="card flex-fill">
                         <div class="card-header pb-2 d-flex align-items-center justify-content-between flex-wrap">
                             <h5 class="mb-2">Employees By Department </h5>
@@ -343,28 +362,62 @@
                                     <!-- Dynamic Stats Grid -->
                                 </div>
                             </div>
-                            <h6 class="mb-2">Top Performer </h6>
-                            <div
-                                class="p-2 d-flex align-items-center justify-content-between border border-primary bg-primary-100 br-5 mb-4">
-                                <div class="d-flex align-items-center overflow-hidden">
-                                    <span class="me-2">
-                                        <i class="ti ti-award-filled text-primary fs-24"></i>
-                                    </span>
-                                    <a href="employee-details.html" class="avatar avatar-md me-2">
-                                        <img src="" class="rounded-circle border border-white" alt="img" />
-                                    </a>
-                                    <div>
-                                        <h6 class="text-truncate mb-1 fs-14 fw-medium"><a
-                                                href="employee-details.html">Daniel Esbella </a></h6>
-                                        <p class="fs-13">IOS Developer </p>
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <h6 class="mb-0">Top Performer</h6>
+                                <ul class="nav nav-pills nav-sm" id="adminTopPerformerTabs" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active px-2 py-1 fs-11" id="pills-admin-this-month-tab" data-bs-toggle="pill" data-bs-target="#pills-admin-this-month" type="button" role="tab">This Month</button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link px-2 py-1 fs-11" id="pills-admin-last-month-tab" data-bs-toggle="pill" data-bs-target="#pills-admin-last-month" type="button" role="tab">Last Month</button>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="tab-content mb-3" id="adminTopPerformerTabContent">
+                                <!-- This Month Tab -->
+                                <div class="tab-pane fade show active" id="pills-admin-this-month" role="tabpanel">
+                                    <div class="p-2 d-flex align-items-center justify-content-between border border-primary bg-primary-100 br-5" id="top_performer_container">
+                                        <div class="d-flex align-items-center overflow-hidden">
+                                            <span class="me-2">
+                                                <i class="ti ti-award-filled text-primary fs-24"></i>
+                                            </span>
+                                            <a href="javascript:void(0);" class="avatar avatar-md me-2">
+                                                <img src="https://ui-avatars.com/api/?name=User&background=random" id="top_performer_avatar" class="rounded-circle border border-white" alt="img" />
+                                            </a>
+                                            <div class="overflow-hidden">
+                                                <h6 class="text-truncate mb-1 fs-14 fw-medium"><a href="javascript:void(0);" id="top_performer_name">Loading...</a></h6>
+                                                <p class="fs-13 mb-0 text-truncate" id="top_performer_role">-</p>
+                                            </div>
+                                        </div>
+                                        <div class="text-end ps-2">
+                                            <p class="fs-13 mb-1">Performance</p>
+                                            <h5 class="text-primary mb-0" id="top_performer_score">0%</h5>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="text-end">
-                                    <p class="fs-13 mb-1">Performance </p>
-                                    <h5 class="text-primary">99% </h5>
+                                <!-- Last Month Tab -->
+                                <div class="tab-pane fade" id="pills-admin-last-month" role="tabpanel">
+                                    <div class="p-2 d-flex align-items-center justify-content-between border border-warning bg-warning-100 br-5" id="lm_top_performer_container">
+                                        <div class="d-flex align-items-center overflow-hidden">
+                                            <span class="me-2">
+                                                <i class="ti ti-medal text-warning fs-24"></i>
+                                            </span>
+                                            <a href="javascript:void(0);" class="avatar avatar-md me-2">
+                                                <img src="https://ui-avatars.com/api/?name=User&background=random" id="lm_top_performer_avatar" class="rounded-circle border border-white" alt="img" />
+                                            </a>
+                                            <div class="overflow-hidden">
+                                                <h6 class="text-truncate mb-1 fs-14 fw-medium"><a href="javascript:void(0);" id="lm_top_performer_name">Loading...</a></h6>
+                                                <p class="fs-13 mb-0 text-truncate" id="lm_top_performer_role">Previous Month Star</p>
+                                            </div>
+                                        </div>
+                                        <div class="text-end ps-2">
+                                            <p class="fs-13 mb-1 text-warning">Status</p>
+                                            <span class="badge badge-soft-warning fs-11" id="lm_top_performer_badge">Last Month</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <a href="employees.html" class="btn btn-light btn-md w-100">View All Employees </a>
+                            <a href="{{ route('fieldstracking.performance-dashboard', ['box_slug' => request()->route('box_slug')]) }}" class="btn btn-light btn-md w-100">View Performance Dashboard </a>
                         </div>
                     </div>
                 </div>
@@ -1533,10 +1586,10 @@
                             </div>
                             <div class="bg-dark br-5 p-3 pb-0 d-flex align-items-center justify-content-between">
                                 <div class="mb-2">
-                                    <h4 class="text-success">389/689 hrs </h4>
-                                    <p class="fs-13 mb-0">Spent on Overall Tasks ____ Week </p>
+                                    <h4 class="text-success mb-1" id="task_spent_hours_text">0 hrs</h4>
+                                    <p class="fs-13 mb-0 text-white" id="task_spent_subtext">Spent on Overall Tasks This Week</p>
                                 </div>
-                                <a href="tasks.html" class="btn btn-sm btn-light mb-2 text-nowrap">View All </a>
+                                <a href="{{ route('tasks.index', ['box_slug' => request()->route('box_slug')]) }}" class="btn btn-sm btn-light mb-2 text-nowrap">View All</a>
                             </div>
                         </div>
                     </div>
@@ -2422,7 +2475,143 @@
                 }
 
                 // Main fetch function
-                function fetchAttendance() {
+                
+                function fetchIndependentTotalTasks() {
+                    let startDate = "";
+                    let endDate = "";
+                    let dateVal = $("#widgetDateFilter").val();
+                    if (dateVal && $("#widgetDateFilter").data("daterangepicker")) {
+                        startDate = $("#widgetDateFilter").data("daterangepicker").startDate.format("YYYY-MM-DD");
+                        endDate = $("#widgetDateFilter").data("daterangepicker").endDate.format("YYYY-MM-DD");
+                    }
+                    let userId = $("#widgetUserFilter").val();
+                    let requestData = {};
+                    if (startDate && endDate) {
+                        requestData.start_date = startDate;
+                        requestData.end_date = endDate;
+                    }
+                    if (userId) {
+                        requestData.user_id = userId;
+                    }
+
+                    $.ajax({
+                        url: "{{ route('admin.total_tasks.stats', ['box_slug' => request()->route('box_slug')]) }}",
+                        method: "GET",
+                        data: requestData,
+                        success: function(res) {
+                            if (res.success && res.data) {
+                                let total = res.data.total;
+                                let open = res.data.open_count;
+                                let closed = res.data.closed_count;
+                                $("#widget_all_time_total_tasks").text(total);
+                                
+                                let openPercent = total > 0 ? Math.round((open / total) * 100) : 0;
+                                let closedPercent = total > 0 ? Math.round((closed / total) * 100) : 0;
+
+                                $("#widget_open_tasks_text").text(open);
+                                $("#widget_closed_tasks_text").text(closed);
+                                $("#widget_open_tasks_percent").text(openPercent + "%");
+                                $("#widget_closed_tasks_percent").text(closedPercent + "%");
+                                $("#widget_open_tasks_bar").css("width", openPercent + "%").attr("aria-valuenow", openPercent);
+                                $("#widget_closed_tasks_bar").css("width", closedPercent + "%").attr("aria-valuenow", closedPercent);
+                            }
+                            if (res.users && $("#widgetUserFilter option").length <= 1) {
+                                res.users.forEach(emp => {
+                                    $("#widgetUserFilter").append(`<option value="${emp.user_id}">${emp.name || emp.user_id}</option>`);
+                                });
+                            }
+                        }
+                    });
+                }
+
+                $(document).ready(function() {
+
+                    // Init Widget Date Range Picker
+                    if ($("#widgetDateFilter").length) {
+                        $("#widgetDateFilter").daterangepicker({
+                            autoUpdateInput: false,
+                            locale: { cancelLabel: "Clear" }
+                        });
+                        $("#widgetDateFilter").on("apply.daterangepicker", function(ev, picker) {
+                            $(this).val(picker.startDate.format("YYYY-MM-DD") + " - " + picker.endDate.format("YYYY-MM-DD"));
+                            fetchIndependentTotalTasks();
+                        });
+                        $("#widgetDateFilter").on("cancel.daterangepicker", function(ev, picker) {
+                            $(this).val("");
+                            fetchIndependentTotalTasks();
+                        });
+                    }
+
+                    $("#widgetUserFilter").on("change", function() {
+                        fetchIndependentTotalTasks();
+                    });
+
+                    // Fetch initial data
+                    fetchIndependentTotalTasks();
+                    fetchPerformanceTopPerformer();
+                });
+
+                function fetchPerformanceTopPerformer() {
+                    const boxSlug = '{{ request()->route('box_slug') }}';
+                    const url = '/' + boxSlug + '/fieldstracking/dashboard-api/performance?t=' + new Date().getTime();
+
+                    $.get(url, function(response) {
+                        if (!response || !response.stats) return;
+
+                        let highestScore = -1;
+                        let highestPerformer = null;
+
+                        const allPerformers = response.stats.all_performers || [];
+                        allPerformers.forEach(p => {
+                            let score = parseFloat(p.avg_score);
+                            if (score > highestScore) {
+                                highestScore = score;
+                                highestPerformer = p;
+                            }
+                        });
+
+                        const teamPerformers = response.stats.team_performers || [];
+                        teamPerformers.forEach(p => {
+                            let score = parseFloat(p.avg_score);
+                            if (score > highestScore) {
+                                highestScore = score;
+                                highestPerformer = p;
+                            }
+                        });
+
+                        // 1. This Month Top Performer
+                        if (highestPerformer && highestScore >= 0) {
+                            $('#top_performer_name').text(highestPerformer.name);
+                            $('#top_performer_role').text(highestPerformer.designation || highestPerformer.department || 'Employee');
+                            $('#top_performer_score').text(highestScore.toFixed(1) + '%');
+                            $('#top_performer_avatar').attr('src', 'https://ui-avatars.com/api/?name=' + encodeURIComponent(highestPerformer.name) + '&background=random');
+                        } else {
+                            $('#top_performer_name').text('No Data');
+                            $('#top_performer_role').text('-');
+                            $('#top_performer_score').text('0%');
+                            $('#top_performer_avatar').attr('src', 'https://ui-avatars.com/api/?name=No+Data&background=E0E0E0&color=666');
+                        }
+
+                        // 2. Last Month Top Performer
+                        if (response.stats.last_month_performer) {
+                            $('#lm_top_performer_name').text(response.stats.last_month_performer);
+                            $('#lm_top_performer_avatar').attr('src', 'https://ui-avatars.com/api/?name=' + encodeURIComponent(response.stats.last_month_performer) + '&background=random');
+                            $('#lm_top_performer_badge').text('Last Month Star');
+                        } else {
+                            $('#lm_top_performer_name').text('No Data');
+                            $('#lm_top_performer_role').text('-');
+                            $('#lm_top_performer_avatar').attr('src', 'https://ui-avatars.com/api/?name=No+Data&background=E0E0E0&color=666');
+                            $('#lm_top_performer_badge').text('No Data');
+                        }
+                    }).fail(function(err) {
+                        $('#top_performer_name').text('No Data');
+                        $('#top_performer_role').text('-');
+                        $('#top_performer_score').text('0%');
+                        $('#lm_top_performer_name').text('No Data');
+                    });
+                }
+
+function fetchAttendance() {
                     let startDate = '';
                     let endDate = '';
                     if ($('#dashboardDateRange').data('daterangepicker')) {
@@ -2500,6 +2689,7 @@
                                 updateAttendanceBreakdown(attendance_breakdown);
                                 renderUpcomingBirthdays(birthdays);
                                 renderEmployees(allemployees);
+                    // Removed redundant widgetUserFilter population
                                 if (response.department_counts) {
                                     renderDepartmentChart(response.department_counts);
                                 }
@@ -2510,7 +2700,10 @@
                                     renderPendingCorrections(response.pending_corrections_list);
                                 }
 
-                                if (response.task_stats) {
+                                
+                                
+
+if (response.task_stats) {
                                     updateTaskStatistics(response.task_stats);
                                 }
 
@@ -2781,6 +2974,19 @@
                         taskStatisticsChart.data.datasets[0].data = [ongoing, onHold, overdue, completed, lateTask];
                         taskStatisticsChart.update();
                     }
+
+                    // Dynamically calculate Spent on Overall Tasks (Hours spent on completed vs total tasks)
+                    // Assuming average task duration standard is 1 hour or based on closed tasks
+                    const spentHours = (completed + lateTask);
+                    const totalEstimatedHours = total > 0 ? total : open;
+                    if (totalEstimatedHours > 0) {
+                        $('#task_spent_hours_text').text(`${spentHours}/${totalEstimatedHours} hrs`);
+                    } else {
+                        $('#task_spent_hours_text').text(`${spentHours} hrs`);
+                    }
+                    
+                    const activePeriodText = $('#dashboardDateRange').val() ? 'Selected Period' : 'This Week';
+                    $('#task_spent_subtext').text(`Spent on Overall Tasks ${activePeriodText}`);
                 }
 
 

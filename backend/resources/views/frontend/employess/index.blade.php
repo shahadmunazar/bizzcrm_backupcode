@@ -66,7 +66,7 @@
         @endif
         <div class="row">
                 <!-- Attendance Overview -->
-                <div class="col-xxl-4 col-xl-6 d-flex">
+                <div class="col-xxl-6 col-xl-6 d-flex">
                     <div class="card flex-fill">
                         <div class="card-header pb-2 d-flex align-items-center justify-content-between flex-wrap">
                             <h5 class="mb-2">Attendance Overview </h5>
@@ -195,6 +195,56 @@
                     </div>
                 </div>
                 <!-- /Attendance Overview -->
+
+                <!-- ALL TIME TOTAL TASKS -->
+                <div class="col-xxl-6 col-xl-6 d-flex">
+                    <div class="card flex-fill">
+                        <div class="card-header border-bottom-0 pb-0 d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <span class="avatar rounded-circle bg-danger me-2">
+                                    <i class="ti ti-checklist fs-16 text-white"></i>
+                                </span>
+                                <h6 class="fs-13 fw-medium text-default mb-0">Total Tasks</h6>
+                            </div>
+                            <div class="dropdown">
+                                <a href="#" class="text-muted" data-bs-toggle="dropdown" aria-expanded="false"><i class="ti ti-filter"></i></a>
+                                <div class="dropdown-menu dropdown-menu-end p-2" style="width: 250px;">
+                                    <div class="mb-2">
+                                        <label class="form-label fs-12">Date Range</label>
+                                        <input type="text" class="form-control form-control-sm" id="widgetDateFilter" placeholder="Select Date Range">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body pt-0 mt-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fs-12 fw-medium text-muted">Open Tasks (<span id="widget_open_tasks_text">0</span>)</span>
+                                <span class="fs-12 text-muted" id="widget_open_tasks_percent">0%</span>
+                            </div>
+                            <div class="progress progress-sm mb-3">
+                                <div class="progress-bar bg-success" id="widget_open_tasks_bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fs-12 fw-medium text-muted">Closed Tasks (<span id="widget_closed_tasks_text">0</span>)</span>
+                                <span class="fs-12 text-muted" id="widget_closed_tasks_percent">0%</span>
+                            </div>
+                            <div class="progress progress-sm mb-3">
+                                <div class="progress-bar bg-danger" id="widget_closed_tasks_bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mb-2 mt-3 pt-2 border-top">
+                                <h6 class="mb-0 fs-14 fw-bold text-dark">Total Tasks</h6>
+                                <h6 class="mb-0 fs-14 fw-bold text-danger" id="widget_all_time_total_tasks">0</h6>
+                            </div>
+                            
+                            <div class="text-center mt-3">
+                                <a href="{{ route('manage_users.todo', ['box_slug' => request()->route('box_slug')]) }}" class="link-default fw-medium">View All Tasks</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- /ALL TIME TOTAL TASKS -->
 
 
 
@@ -3384,6 +3434,64 @@ if ($('#attendance').length > 0) {
                         }
                     });
                 }
+
+function fetchEmployeeTotalTasks() {
+    let startDate = "";
+    let endDate = "";
+    let dateVal = $("#widgetDateFilter").val();
+    if (dateVal && $("#widgetDateFilter").data("daterangepicker")) {
+        startDate = $("#widgetDateFilter").data("daterangepicker").startDate.format("YYYY-MM-DD");
+        endDate = $("#widgetDateFilter").data("daterangepicker").endDate.format("YYYY-MM-DD");
+    }
+    
+    let requestData = {};
+    if (startDate && endDate) {
+        requestData.start_date = startDate;
+        requestData.end_date = endDate;
+    }
+
+    $.ajax({
+        url: "{{ route('employess.dashboard.total_tasks', ['box_slug' => request()->route('box_slug')]) }}",
+        method: "GET",
+        data: requestData,
+        success: function(res) {
+            if (res.success && res.data) {
+                let total = res.data.total;
+                let open = res.data.open_count;
+                let closed = res.data.closed_count;
+                $("#widget_all_time_total_tasks").text(total);
+                
+                let openPercent = total > 0 ? Math.round((open / total) * 100) : 0;
+                let closedPercent = total > 0 ? Math.round((closed / total) * 100) : 0;
+
+                $("#widget_open_tasks_text").text(open);
+                $("#widget_closed_tasks_text").text(closed);
+                $("#widget_open_tasks_percent").text(openPercent + "%");
+                $("#widget_closed_tasks_percent").text(closedPercent + "%");
+                $("#widget_open_tasks_bar").css("width", openPercent + "%").attr("aria-valuenow", openPercent);
+                $("#widget_closed_tasks_bar").css("width", closedPercent + "%").attr("aria-valuenow", closedPercent);
+            }
+        }
+    });
+}
+
+$(document).ready(function() {
+    if ($("#widgetDateFilter").length) {
+        $("#widgetDateFilter").daterangepicker({
+            autoUpdateInput: false,
+            locale: { cancelLabel: "Clear" }
+        });
+        $("#widgetDateFilter").on("apply.daterangepicker", function(ev, picker) {
+            $(this).val(picker.startDate.format("YYYY-MM-DD") + " - " + picker.endDate.format("YYYY-MM-DD"));
+            fetchEmployeeTotalTasks();
+        });
+        $("#widgetDateFilter").on("cancel.daterangepicker", function(ev, picker) {
+            $(this).val("");
+            fetchEmployeeTotalTasks();
+        });
+    }
+    fetchEmployeeTotalTasks();
+});
 </script>
 @endpush
 @endsection

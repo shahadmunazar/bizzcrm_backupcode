@@ -2,6 +2,8 @@
 namespace App\Providers;
 
 use App\Helpers\BoxPermissionHelper;
+use App\Models\Box;
+use App\Observers\BoxObserver;
 use App\Models\BoxUser;
 use App\Models\CrmSource;
 use App\Models\ContactStage;
@@ -35,7 +37,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-
+        Box::observe(BoxObserver::class);
 
         if (config('app.env') === 'production' || str_contains(config('app.url'), 'https://')) {
             URL::forceScheme('https');

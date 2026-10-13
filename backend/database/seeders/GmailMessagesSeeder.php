@@ -20,8 +20,10 @@ class GmailMessagesSeeder extends Seeder
         \Illuminate\Support\Facades\DB::connection('bizzcrm_migrate')
             ->table('mail_box_emails')
             ->orderBy('id')
-            ->chunkById(500, function ($messages) {
+            ->chunkById(250, function ($messages) {
                 $chunk = [];
+                $currentBatchSize = 0;
+                $maxBytesPerInsert = 500000; // 500 KB safety limit per query to stay safely under the strict 1MB MySQL limit
                 
                 foreach ($messages as $msg) {
                     $receivedAt = null;
@@ -34,7 +36,7 @@ class GmailMessagesSeeder extends Seeder
 
                     $msgId = !empty($msg->mail_id) ? mb_substr($msg->mail_id, 0, 255) : \Illuminate\Support\Str::uuid()->toString();
                     
-                    $chunk[] = [
+                    $row = [
                         'id' => $msg->id,
                         'gmail_inbox_id' => $msg->inbox_id,
                         'message_id' => $msgId,
@@ -51,12 +53,26 @@ class GmailMessagesSeeder extends Seeder
                         'created_at' => $msg->created_at,
                         'updated_at' => $msg->updated_at,
                     ];
+                    
+                    // ULTRA-FAST byte calculation instead of slow serialize()
+                    $rowBytes = strlen($msg->body ?? '') + 2048; 
+                    
+                    // If adding this row exceeds our 3MB safe limit (and we already have items), insert current chunk first
+                    if ($currentBatchSize + $rowBytes > $maxBytesPerInsert && count($chunk) > 0) {
+                        \Illuminate\Support\Facades\DB::table('gmail_messages')->insertOrIgnore($chunk);
+                        $chunk = [];
+                        $currentBatchSize = 0;
+                    }
+                    
+                    $chunk[] = $row;
+                    $currentBatchSize += $rowBytes;
                 }
 
+                // Insert any remaining items in the chunk
                 if (count($chunk) > 0) {
                     \Illuminate\Support\Facades\DB::table('gmail_messages')->insertOrIgnore($chunk);
                     $lastId = end($chunk)['id'];
-                    echo "Processed chunk up to ID: {$lastId}\n";
+                    echo "Processed dynamically chunked emails up to ID: {$lastId}\n";
                 }
             });
 

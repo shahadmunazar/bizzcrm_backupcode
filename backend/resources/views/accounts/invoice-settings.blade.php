@@ -40,6 +40,9 @@
 										<h4 class="fw-semibold mb-3">Invoice Settings</h4>
 										<form id="invoiceSettingsForm" action="{{ route('accounts.invoice_settings.save', ['box_slug' => request()->segment(1)]) }}" method="POST" enctype="multipart/form-data">
                                             @csrf
+                                            @if(request()->query('company_id'))
+                                                <input type="hidden" name="company_id" value="{{ request()->query('company_id') }}">
+                                            @endif
 											<div class="row">
 												<div class="col-md-6">
 													<div class="mb-3">
@@ -101,6 +104,25 @@
 													<div class="mb-3">
 														<input type="text" name="invoice_prefix" class="form-control" value="{{ old('invoice_prefix', $settings->invoice_prefix) }}">
 													</div>
+												</div>
+											</div>
+                                            
+                                            <div class="row">
+												<div class="col-md-6">
+													<div class="mb-3">
+														<h6 class="fw-medium">Financial Year</h6>
+														<p>Set default financial year range for invoices</p>
+													</div>
+												</div>
+												<div class="col-md-6">
+                                                    <div class="row">
+                                                        <div class="col-6 mb-3">
+                                                            <input type="date" name="from_date" class="form-control" value="{{ old('from_date', $settings->from_date ? \Carbon\Carbon::parse($settings->from_date)->format('Y-m-d') : '') }}" placeholder="From Date">
+                                                        </div>
+                                                        <div class="col-6 mb-3">
+                                                            <input type="date" name="to_date" class="form-control" value="{{ old('to_date', $settings->to_date ? \Carbon\Carbon::parse($settings->to_date)->format('Y-m-d') : '') }}" placeholder="To Date">
+                                                        </div>
+                                                    </div>
 												</div>
 											</div>
 											<div class="row">

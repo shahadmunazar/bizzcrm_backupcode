@@ -41,6 +41,25 @@ class GeneralNotification extends Notification implements ShouldBroadcast
      *
      * @return array<string, mixed>
      */
+    
+    public function toFcm($notifiable)
+    {
+        $dbData = $this->toArray($notifiable);
+        
+        $data = [];
+        foreach ($dbData as $key => $val) {
+            if (!in_array($key, ['title', 'message', 'icon', 'bg_color'])) {
+                $data[$key] = is_string($val) || is_numeric($val) ? (string)$val : json_encode($val);
+            }
+        }
+        
+        return [
+            'title' => $dbData['title'] ?? 'Notification',
+            'body' => $dbData['message'] ?? '',
+            'data' => $data
+        ];
+    }
+
     public function toArray(object $notifiable): array
     {
         return [

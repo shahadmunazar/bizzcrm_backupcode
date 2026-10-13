@@ -426,16 +426,33 @@ class LeadIntegrationController extends Controller
             return response()->json(['success' => false, 'message' => 'No data received'], 400);
         }
 
-        // 4. Validate Lead Data based on Box requirements
+        // Health Check / Ping mode (allows verifying endpoint connectivity without creating leads)
+        if ($request->boolean('ping') || $request->boolean('test') || $request->boolean('health_check')) {
+            $integration->update([
+                'last_checked_date' => now()->toDateTimeString()
+            ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Webhook connection verified successfully! Ready to receive leads.',
+                'integration_id' => $integration->id,
+                'source_name' => $integration->params['source_name'] ?? 'WebHook',
+                'box' => $integration->box->name ?? null
+            ]);
+        }
+
+        // 4. Normalize incoming field aliases (mobile -> phone, full_name -> name, etc.) and clean phone
+        $requestData = $this->normalizeWebhookData($requestData);
+
+        // 5. Validate Lead Data based on Box requirements
         $validator = $this->validateWebhookData($integration->box, $requestData);
         if ($validator->fails()) {
             return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
         }
 
-        // 5. Build Log Record
+        // 6. Build Log Record
         $webhookLog = $this->createWebhookLog($integration, $requestData);
 
-        // 6. Process Lead
+        // 7. Process Lead
         try {
             $this->processWebhookLead($integration, $requestData, $webhookLog);
 
@@ -450,6 +467,69 @@ class LeadIntegrationController extends Controller
             Log::error("Webhook Error: " . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Lead processing failed', 'error' => $e->getMessage()], 500);
         }
+    }
+
+    private function normalizeWebhookData(array $data): array
+    {
+        // Flatten nested wrappers if sent as { "data": { ... } } or { "lead": { ... } }
+        if (isset($data['data']) && is_array($data['data'])) {
+            $data = array_merge($data['data'], $data);
+        } elseif (isset($data['lead']) && is_array($data['lead'])) {
+            $data = array_merge($data['lead'], $data);
+        } elseif (isset($data['payload']) && is_array($data['payload'])) {
+            $data = array_merge($data['payload'], $data);
+        }
+
+        // 1. Phone / Mobile alias
+        if (empty($data['phone'])) {
+            $data['phone'] = $data['mobile'] ?? $data['contact'] ?? $data['phone_number'] ?? $data['contact_no'] ?? $data['cell'] ?? $data['mobile_number'] ?? $data['Phone'] ?? $data['Mobile'] ?? null;
+        }
+
+        if (!empty($data['phone'])) {
+            $cleaned = preg_replace('/[^\d+]/', '', (string)$data['phone']);
+            // Strip leading +91 or 91 if length is 12 (Indian country code)
+            if (str_starts_with($cleaned, '+91')) {
+                $cleaned = substr($cleaned, 3);
+            } elseif (strlen($cleaned) === 12 && str_starts_with($cleaned, '91')) {
+                $cleaned = substr($cleaned, 2);
+            } elseif (strlen($cleaned) === 11 && str_starts_with($cleaned, '0')) {
+                $cleaned = substr($cleaned, 1);
+            }
+            $data['phone'] = $cleaned;
+        }
+
+        // 2. Name alias
+        if (empty($data['name'])) {
+            $data['name'] = $data['full_name'] ?? $data['first_name'] ?? $data['sender_name'] ?? $data['caller_name'] ?? $data['lead_name'] ?? $data['Name'] ?? null;
+            if (!empty($data['first_name']) && !empty($data['last_name'])) {
+                $data['name'] = trim($data['first_name'] . ' ' . $data['last_name']);
+            }
+        }
+
+        // 3. Email alias
+        if (empty($data['email'])) {
+            $data['email'] = $data['email_id'] ?? $data['email_address'] ?? $data['sender_email'] ?? $data['mail'] ?? $data['Email'] ?? null;
+        }
+
+        // 4. Message / Query alias
+        if (empty($data['query'])) {
+            $data['query'] = $data['message'] ?? $data['comments'] ?? $data['requirement'] ?? $data['inquiry'] ?? $data['description'] ?? $data['msg'] ?? null;
+        }
+
+        // 5. Company alias
+        if (empty($data['company_name'])) {
+            $data['company_name'] = $data['company'] ?? $data['organization'] ?? $data['firm_name'] ?? null;
+        }
+
+        // 6. City / State alias
+        if (empty($data['city'])) {
+            $data['city'] = $data['sender_city'] ?? $data['City'] ?? null;
+        }
+        if (empty($data['state'])) {
+            $data['state'] = $data['sender_state'] ?? $data['State'] ?? null;
+        }
+
+        return $data;
     }
 
     private function findIntegration($id)
@@ -480,8 +560,8 @@ class LeadIntegrationController extends Controller
         $requiredField = $box->lead_required_field ?? 'email';
 
         $rules = [
-            'email' => ($requiredField === 'email' ? 'required|email' : 'nullable|email'),
-            'phone' => ($requiredField === 'phone' ? 'required|regex:/^[6-9]\d{9}$/' : 'nullable|regex:/^[6-9]\d{9}$/')
+            'email' => ($requiredField === 'email' ? ['required', 'email'] : ['nullable', 'email']),
+            'phone' => ($requiredField === 'phone' ? ['required', 'regex:/^(\+?[1-9]\d{9,14}|[6-9]\d{9})$/'] : ['nullable', 'regex:/^(\+?[1-9]\d{9,14}|[6-9]\d{9})$/'])
         ];
 
         return Validator::make($data, $rules);

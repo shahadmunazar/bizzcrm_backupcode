@@ -13,6 +13,7 @@ use App\Http\Controllers\FieldTracking\ActivityController;
 use App\Http\Controllers\FieldTracking\PaymentController;
 use App\Http\Controllers\FieldTracking\TourController;
 use App\Http\Controllers\FieldTracking\TargetController;
+use App\Http\Controllers\FieldTracking\PerformanceDashboardController;
 use App\Http\Controllers\FieldTracking\LocationTrackingFrontendController;
 use App\Http\Controllers\NotificationController; // Added
 use App\Http\Controllers\PayRoll\{PayRollController, SalaryController, SalaryReportController, SalarySettingController};
@@ -212,9 +213,34 @@ Route::group(['prefix' => '{box_slug}', 'middleware' => ['auth']], function () {
         Route::get('payment-gateways', [PaymentController::class, 'paymentGateways'])->name('payment-gateways');
         Route::get('payment', [PaymentController::class, 'payment'])->name('payment');
         Route::get('payments', [PaymentController::class, 'payments'])->name('payments');
+        Route::get('payments/data', [PaymentController::class, 'getPaymentsData'])->name('payments.data');
         Route::get('target-template', [TargetController::class, 'targetTemplate'])->name('target-template');
+        Route::post('target-template/store', [TargetController::class, 'storeTemplate'])->name('target-template.store');
+        Route::get('target-api/templates/{id}', [TargetController::class, 'getTemplate']);
+        Route::post('target-template/update/{id}', [TargetController::class, 'updateTemplate'])->name('target-template.update');
+        Route::post('target-template/delete/{id}', [TargetController::class, 'deleteTemplate'])->name('target-template.delete');
+
+        Route::post('target-assignment/store', [TargetController::class, 'storeAssignment'])->name('target-assignment.store');
+
+        Route::get('target-api/departments', [TargetController::class, 'getDepartments'])->name('target-api.departments');
+        Route::get('target-api/templates', [TargetController::class, 'getTemplates'])->name('target-api.templates');
+        Route::get('target-api/employees', [TargetController::class, 'getEmployees'])->name('target-api.employees');
+        Route::get('target-api/teams', [TargetController::class, 'getTeams'])->name('target-api.teams');
+        Route::get('target-api/assignments', [TargetController::class, 'getAllAssignments'])->name('target-api.assignments');
+        Route::get('target-api/my-assignments', [TargetController::class, 'getMyAssignments'])->name('target-api.my-assignments');
         Route::get('my-target', [TargetController::class, 'myTarget'])->name('my-target');
         Route::get('team-targets', [TargetController::class, 'teamTargets'])->name('team-targets');
+        
+        // Performance Dashboards
+        Route::get('employee-dashboard', [PerformanceDashboardController::class, 'employeeDashboard'])->name('employee-dashboard');
+        Route::get('performance-dashboard', [PerformanceDashboardController::class, 'performanceDashboard'])->name('performance-dashboard');
+        
+        // Performance Dashboards API
+        Route::get('dashboard-api/departments', [PerformanceDashboardController::class, 'getDepartments'])->name('dashboard-api.departments');
+        Route::get('dashboard-api/teams', [PerformanceDashboardController::class, 'getTeams'])->name('dashboard-api.teams');
+        Route::get('dashboard-api/employees', [PerformanceDashboardController::class, 'getEmployees'])->name('dashboard-api.employees');
+        Route::get('dashboard-api/performance', [PerformanceDashboardController::class, 'getPerformance'])->name('dashboard-api.performance');
+
         Route::get('team-activity-detail', [ActivityController::class, 'teamActivityDetail'])->name('team-activity-detail');
         Route::get('team-activity', [ActivityController::class, 'teamActivity'])->name('team-activity');
         Route::post('team-activity-data', [ActivityController::class, 'teamActivityData'])->name('team-activity-data');
@@ -435,7 +461,10 @@ Route::group(['prefix' => '{box_slug}', 'middleware' => ['auth']], function () {
             
             Route::get('dashboard', [SuperadminFrontendController::class, 'index'])->name('superadmin.dashboard');
             Route::get('company', [SuperadminFrontendController::class, 'company'])->name('superadmin.company');
+            Route::get('company/impersonate/{target_box_id}', [SuperadminFrontendController::class, 'impersonate'])->name('superadmin.company.impersonate');
+            Route::get('company/leave-impersonation', [SuperadminFrontendController::class, 'leaveImpersonation'])->name('superadmin.company.leave-impersonation');
             Route::get('/get-company', [SuperadminFrontendController::class, 'get_company'])->name('get.company');
+            Route::post('company/update/{id}', [SuperadminFrontendController::class, 'updateCompany'])->name('superadmin.company.update');
             Route::get('subscription', [SuperadminFrontendController::class, 'subscription'])->name('superadmin.subscription');
             Route::get('subscription/preview/{id}', [SuperadminFrontendController::class, 'previewSubscription'])->name('superadmin.subscription.preview');
             Route::post('subscription/update-status/{id}', [SuperadminFrontendController::class, 'updateSubscriptionStatus'])->name('superadmin.subscription.update-status');
@@ -686,13 +715,16 @@ Route::group(['prefix' => '{box_slug}', 'middleware' => ['auth']], function () {
 
             Route::get('/invoice', [InvoiceController::class, 'index'])->name('accounts.invoice');
             Route::get('/invoices', [InvoiceController::class, 'list'])->name('accounts.invoices');
+            Route::get('/proforma-invoices', [InvoiceController::class, 'proformaList'])->name('accounts.proforma_invoices');
             Route::post('/invoices/store', [InvoiceController::class, 'store'])->name('accounts.invoices.store');
             Route::post('/invoices/update/{id}', [InvoiceController::class, 'update'])->name('accounts.invoices.update');
+            Route::post('/invoices/convert/{id}', [InvoiceController::class, 'convertToInvoice'])->name('accounts.invoices.convert');
             Route::post('/invoices/delete/{id}', [InvoiceController::class, 'destroy'])->name('accounts.invoices.destroy');
             Route::get('/ajax-invoices', [InvoiceController::class, 'getInvoicesData'])->name('accounts.ajax_invoices');
             Route::get('/ajax-clients', [InvoiceController::class, 'ajaxClients'])->name('accounts.ajax_clients');
             Route::get('/ajax-products', [InvoiceController::class, 'ajaxProducts'])->name('accounts.ajax_products');
             Route::get('/ajax-leads', [InvoiceController::class, 'ajaxLeads'])->name('accounts.ajax_leads');
+            Route::get('/ajax-payment-modes', [InvoiceController::class, 'ajaxPaymentModes'])->name('accounts.ajax_payment_modes');
             Route::get('/invoice-details/{id}', [InvoiceController::class, 'details'])->name('accounts.invoice_details');
             Route::get('/invoice-print/{id}', [InvoiceController::class, 'print'])->name('accounts.invoice_print');
             Route::get('/invoice-download/{id}', [InvoiceController::class, 'downloadPdf'])->name('accounts.invoice_download');
@@ -830,6 +862,7 @@ Route::group(['prefix' => '{box_slug}', 'middleware' => ['auth']], function () {
                     Route::post('/auto-punch-out', [AttendaceController::class, 'auto_attendance'])->name('auto.attendance');
                     Route::get('/attendance-shift', [AttendaceFrontendController::class, 'attendance_shift'])->name('employee.shift');
                     Route::get('employee-dashboard-stats', [AttendaceController::class, 'employeeDashboardStats'])->name('employess.dashboard.stats');
+                    Route::get('employee-dashboard-total-tasks', [AttendaceController::class, 'EmployeeTotalTasksStats'])->name('employess.dashboard.total_tasks');
                     Route::get('employee-dashboard-overview', [AttendaceController::class, 'attendanceOverview'])->name('employess.dashboard.overview');
                     Route::get('employee-leave-states', [LeaveController::class, 'employeeLeaveStats'])->name('employee.leave.stats');
                     //get department for fetch
@@ -940,6 +973,9 @@ Route::group(['prefix' => '{box_slug}', 'middleware' => ['auth']], function () {
                     Route::get('get-admin-request-datas', [AttendaceController::class, 'getAdminRequestdata'])->name('get.data.admin.request');
                     Route::post('saved-attendance-correction', [AttendaceController::class, 'SavedAttendanceCoreection'])->name('saved.correction');
                     Route::get('/admin-dashboard-attendance-list', [AttendaceController::class, 'AdminAttendaceList'])->name('admin.attendance.list');
+                    Route::get('/admin-dashboard-total-tasks', [AttendaceController::class, 'AdminTotalTasksStats'])->name('admin.total_tasks.stats');
+                    Route::get('/users-task-progress', [AttendaceController::class, 'UserTaskProgress'])->name('users.task.progress');
+                    Route::get('/users-task-progress-data', [AttendaceController::class, 'UserTaskProgressData'])->name('users.task.progress.data');
                     Route::get("check-employee-attendace", [AttendaceController::class, 'check_attendance'])->name('check.attendance');
                     Route::get('get-upcoming-birthdays', [AttendaceController::class, 'GetUpcomingBirthday'])->name('get.upcoming.birthday');
                     Route::get("check-attendance-summary", [AttendaceController::class, 'checkattendace_summary'])->name('check.attendance.summary');
@@ -1099,6 +1135,9 @@ Route::group(['prefix' => '{box_slug}', 'middleware' => ['auth']], function () {
                 function () {
                     Route::get('/leads/dashboard', [LeadsFrontendController::class, 'index'])->name('leads.dashboard');
                     Route::get('/leads/dashboard/data', [LeadsFrontendController::class, 'dashboardData'])->name('leads.dashboard.data');
+
+                    Route::get('/leads/user-dashboard', [LeadsFrontendController::class, 'userDashboard'])->name('leads.user.dashboard');
+                    Route::get('/leads/user-dashboard/data', [LeadsFrontendController::class, 'userDashboardData'])->name('leads.user.dashboard.data');
                     Route::post('/leads/upload-summernote-file', [LeadsFrontendController::class, 'uploadSummernoteFile'])->name('leads.upload.summernote.file');
                     Route::get('/leads-list', [SystemController::class, 'index'])->name('leads.details');
                     Route::get('/leads-list-all', [SystemController::class, 'index_all'])->name('leads.details.all');

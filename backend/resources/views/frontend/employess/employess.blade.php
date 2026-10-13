@@ -197,6 +197,7 @@
                                 <th>Email ID </th>
                                 <th>Joining Date </th>
                                 <th>Call Logs</th>
+                                <th>Status</th>
                                 <th>Action</th>
                             </tr>
 
@@ -2179,7 +2180,8 @@
                 { index: 10, name: 'Email ID', visible: true },
                 { index: 11, name: 'Joining Date', visible: true },
                 { index: 12, name: 'Call Logs', visible: true },
-                { index: 13, name: 'Action', visible: true }
+                { index: 13, name: 'Status', visible: true },
+                { index: 14, name: 'Action', visible: true }
             ];
 
             // Page identifier for column preferences
@@ -2898,7 +2900,8 @@
                         type: 'GET',
                         data: { 
                             superior_to_designation: filterDesignation, 
-                            exclude_id: currentEditingEmpId || null 
+                            exclude_id: currentEditingEmpId || null,
+                            include_id: selectedId || null
                         },
                         success: function(response) {
                             $select.prop('disabled', false);
@@ -3293,6 +3296,7 @@
                         emp.email ?? 'N/A',
                         emp.joining_date ? new Date(emp.joining_date).toLocaleDateString() : 'N/A',
                         emp.call_logs ? '<span class="badge badge-soft-success">Enabled</span>' : '<span class="badge badge-soft-danger">Disabled</span>',
+                        emp.status === 'Enabled' ? '<span class="badge badge-soft-success">Enabled</span>' : '<span class="badge badge-soft-danger">Disabled</span>',
                         `<div class="action-icon d-inline-flex flex-column align-items-start" style="gap: 10px;">
                 <div class="d-inline-flex" style="gap: 15px;">
                     <a href="#" class="edit-employee-btn" data-bs-toggle="modal" data-bs-target="#edit_employee" data-emp-id="${emp.id}" title="Edit">
@@ -3383,7 +3387,7 @@
                     const isAdmin = (window.PermissionHelper && window.PermissionHelper.isAdmin) ||
                                    (window.PermissionHelper && window.PermissionHelper.staffRole === 'admin') || false;
                     if (isAdmin) {
-                        const actionColumn = columnDefinitions.find(c => c.index === 13);
+                        const actionColumn = columnDefinitions.find(c => c.index === 14);
                         if (actionColumn) {
                             actionColumn.visible = true; // Force Action column visible for admins
                         }
@@ -3451,9 +3455,13 @@
                                 visible: columnDefinitions[12].visible
                             },
                             {
+                                title: 'Status',
+                                visible: columnDefinitions[13].visible
+                            },
+                            {
                                 title: 'Action',
                                 orderable: false,
-                                visible: columnDefinitions[13].visible
+                                visible: columnDefinitions[14].visible
                             }
                         ],
                         order: [
@@ -4186,7 +4194,7 @@
                         $('#edit_cropped_image').val('');
                         $('#UpdateFormEmPloyee').data('cropped-image', null);
                     }
-                    $('#name').val(employee.first_name || '');
+                    $('#name').val(employee.first_name || employee.name || '');
                     $('#last_name').val(employee.last_name || '');
                     if (employee.gender) {
                         $('#edit_gender').val(employee.gender).trigger('change');

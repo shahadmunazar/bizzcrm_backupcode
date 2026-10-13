@@ -22,6 +22,13 @@ class PermissionsTableSeeder extends Seeder
             'activities_records',
             'general_settings',
             'integrations',
+            'finance_dashboard',
+            'finance_settings_allowance_types',
+            'finance_settings_expense_categories',
+            'finance_settings_approval_rules',
+            'finance_expenses',
+            'finance_approvals',
+            'finance_reimbursements',
         ];
 
         $actions = [
@@ -31,6 +38,9 @@ class PermissionsTableSeeder extends Seeder
             'delete',
             'import',
             'export',
+            'approve',
+            'apply',
+            'process',
         ];
 
         $now = Carbon::now();

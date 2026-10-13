@@ -26,6 +26,67 @@
                     </div>
                 </div>
                 <!-- /Page Header -->
+
+                <!-- Summary Cards -->
+                <div class="row">
+                    <!-- Total Companies -->
+                    <div class="col-xl-4 col-sm-6 d-flex">
+                        <div class="card flex-fill">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <span class="avatar avatar-md rounded bg-dark mb-3">
+                                        <i class="ti ti-building fs-16"></i>
+                                    </span>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <h2 class="mb-1">{{ $total_companies }}</h2>
+                                        <p class="fs-13">Total Companies</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Active Companies -->
+                    <div class="col-xl-4 col-sm-6 d-flex">
+                        <div class="card flex-fill">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <span class="avatar avatar-md rounded bg-dark mb-3">
+                                        <i class="ti ti-carousel-vertical fs-16"></i>
+                                    </span>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <h2 class="mb-1">{{ $active_companies }}</h2>
+                                        <p class="fs-13">Active Companies</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Inactive Companies -->
+                    <div class="col-xl-4 col-sm-6 d-flex">
+                        <div class="card flex-fill">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <span class="avatar avatar-md rounded bg-dark mb-3">
+                                        <i class="ti ti-carousel-horizontal fs-16"></i>
+                                    </span>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <h2 class="mb-1">{{ $inactive_companies }}</h2>
+                                        <p class="fs-13">Inactive Companies</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- /Summary Cards -->
                 <div class="card ">
                     <div class="card-header">
                         <!-- Search -->
@@ -77,23 +138,23 @@
                                     <div class="dropdown-menu  dropdown-menu-start">
                                         <ul>
                                             <li>
-                                                <a href="javascript:void(0);" class="dropdown-item">
+                                                <a href="javascript:void(0);" class="dropdown-item sort-item" data-sort="asc">
                                                     <i class="ti ti-circle-chevron-right me-1"></i>Ascending
                                                 </a>
                                             </li>
                                             <li>
-                                                <a href="javascript:void(0);" class="dropdown-item">
+                                                <a href="javascript:void(0);" class="dropdown-item sort-item" data-sort="desc">
                                                     <i class="ti ti-circle-chevron-right me-1"></i>Descending
                                                 </a>
                                             </li>
                                             <li>
-                                                <a href="javascript:void(0);" class="dropdown-item">
+                                                <a href="javascript:void(0);" class="dropdown-item sort-item" data-sort="recently_viewed">
                                                     <i class="ti ti-circle-chevron-right me-1"></i>Recently
                                                     Viewed
                                                 </a>
                                             </li>
                                             <li>
-                                                <a href="javascript:void(0);" class="dropdown-item">
+                                                <a href="javascript:void(0);" class="dropdown-item sort-item" data-sort="recently_added">
                                                     <i class="ti ti-circle-chevron-right me-1"></i>Recently
                                                     Added
                                                 </a>
@@ -117,83 +178,58 @@
                                             and enable see option as you want.</p>
                                         <div class="border-top pt-3">
                                             <div class="d-flex align-items-center justify-content-between mb-3">
-                                                <p class="mb-0 d-flex align-items-center"><i
-                                                        class="ti ti-grip-vertical me-2"></i>Name</p>
+                                                <p class="mb-0 d-flex align-items-center"><i class="ti ti-grip-vertical me-2"></i>Company</p>
                                                 <div class="status-toggle">
-                                                    <input type="checkbox" id="col-name" class="check">
-                                                    <label for="col-name" class="checktoggle"></label>
+                                                    <input type="checkbox" id="col-company" data-col="2" class="check toggle-column" checked>
+                                                    <label for="col-company" class="checktoggle"></label>
                                                 </div>
                                             </div>
                                             <div class="d-flex align-items-center justify-content-between mb-3">
-                                                <p class="mb-0 d-flex align-items-center"><i
-                                                        class="ti ti-grip-vertical me-2"></i>Phone</p>
+                                                <p class="mb-0 d-flex align-items-center"><i class="ti ti-grip-vertical me-2"></i>Email</p>
                                                 <div class="status-toggle">
-                                                    <input type="checkbox" id="col-phone" class="check">
-                                                    <label for="col-phone" class="checktoggle"></label>
-                                                </div>
-                                            </div>
-                                            <div class="d-flex align-items-center justify-content-between mb-3">
-                                                <p class="mb-0 d-flex align-items-center"><i
-                                                        class="ti ti-grip-vertical me-2"></i>Email</p>
-                                                <div class="status-toggle">
-                                                    <input type="checkbox" id="col-email" class="check">
+                                                    <input type="checkbox" id="col-email" data-col="3" class="check toggle-column" checked>
                                                     <label for="col-email" class="checktoggle"></label>
                                                 </div>
                                             </div>
                                             <div class="d-flex align-items-center justify-content-between mb-3">
-                                                <p class="mb-0 d-flex align-items-center"><i
-                                                        class="ti ti-grip-vertical me-2"></i>Tags</p>
+                                                <p class="mb-0 d-flex align-items-center"><i class="ti ti-grip-vertical me-2"></i>Domain</p>
                                                 <div class="status-toggle">
-                                                    <input type="checkbox" id="col-tag" class="check">
-                                                    <label for="col-tag" class="checktoggle"></label>
+                                                    <input type="checkbox" id="col-domain" data-col="4" class="check toggle-column" checked>
+                                                    <label for="col-domain" class="checktoggle"></label>
                                                 </div>
                                             </div>
                                             <div class="d-flex align-items-center justify-content-between mb-3">
-                                                <p class="mb-0 d-flex align-items-center"><i
-                                                        class="ti ti-grip-vertical me-2"></i>Location</p>
+                                                <p class="mb-0 d-flex align-items-center"><i class="ti ti-grip-vertical me-2"></i>Industry</p>
                                                 <div class="status-toggle">
-                                                    <input type="checkbox" id="col-loc" class="check">
-                                                    <label for="col-loc" class="checktoggle"></label>
+                                                    <input type="checkbox" id="col-industry" data-col="5" class="check toggle-column" checked>
+                                                    <label for="col-industry" class="checktoggle"></label>
                                                 </div>
                                             </div>
                                             <div class="d-flex align-items-center justify-content-between mb-3">
-                                                <p class="mb-0 d-flex align-items-center"><i
-                                                        class="ti ti-grip-vertical me-2"></i>Rating</p>
+                                                <p class="mb-0 d-flex align-items-center"><i class="ti ti-grip-vertical me-2"></i>Created Date</p>
                                                 <div class="status-toggle">
-                                                    <input type="checkbox" id="col-rate" class="check">
-                                                    <label for="col-rate" class="checktoggle"></label>
+                                                    <input type="checkbox" id="col-created" data-col="6" class="check toggle-column" checked>
+                                                    <label for="col-created" class="checktoggle"></label>
                                                 </div>
                                             </div>
                                             <div class="d-flex align-items-center justify-content-between mb-3">
-                                                <p class="mb-0 d-flex align-items-center"><i
-                                                        class="ti ti-grip-vertical me-2"></i>Owner</p>
+                                                <p class="mb-0 d-flex align-items-center"><i class="ti ti-grip-vertical me-2"></i>Email Status</p>
                                                 <div class="status-toggle">
-                                                    <input type="checkbox" id="col-owner" class="check">
-                                                    <label for="col-owner" class="checktoggle"></label>
+                                                    <input type="checkbox" id="col-email-status" data-col="7" class="check toggle-column" checked>
+                                                    <label for="col-email-status" class="checktoggle"></label>
                                                 </div>
                                             </div>
                                             <div class="d-flex align-items-center justify-content-between mb-3">
-                                                <p class="mb-0 d-flex align-items-center"><i
-                                                        class="ti ti-grip-vertical me-2"></i>Contact</p>
+                                                <p class="mb-0 d-flex align-items-center"><i class="ti ti-grip-vertical me-2"></i>Status</p>
                                                 <div class="status-toggle">
-                                                    <input type="checkbox" id="col-contact" class="check"
-                                                        checked="">
-                                                    <label for="col-contact" class="checktoggle"></label>
-                                                </div>
-                                            </div>
-                                            <div class="d-flex align-items-center justify-content-between mb-3">
-                                                <p class="mb-0 d-flex align-items-center"><i
-                                                        class="ti ti-grip-vertical me-2"></i>Status</p>
-                                                <div class="status-toggle">
-                                                    <input type="checkbox" id="col-status" class="check">
+                                                    <input type="checkbox" id="col-status" data-col="8" class="check toggle-column" checked>
                                                     <label for="col-status" class="checktoggle"></label>
                                                 </div>
                                             </div>
                                             <div class="d-flex align-items-center justify-content-between">
-                                                <p class="mb-0 d-flex align-items-center"><i
-                                                        class="ti ti-grip-vertical me-2"></i>Action</p>
+                                                <p class="mb-0 d-flex align-items-center"><i class="ti ti-grip-vertical me-2"></i>Action</p>
                                                 <div class="status-toggle">
-                                                    <input type="checkbox" id="col-action" class="check">
+                                                    <input type="checkbox" id="col-action" data-col="9" class="check toggle-column" checked>
                                                     <label for="col-action" class="checktoggle"></label>
                                                 </div>
                                             </div>
@@ -794,7 +830,9 @@
         </button>
     </div>
     <div class="offcanvas-body">
-        <form action="company.html">
+        <form id="edit_company_form" enctype="multipart/form-data">
+            @csrf
+            <input type="hidden" name="company_id" id="edit_company_id">
             <div class="card">
                 <div class="card-body">
                     <div class="row">
@@ -803,17 +841,17 @@
                                 <div class="profile-upload">
                                     <div class="profile-upload-img">
                                         <span><i class="ti ti-photo"></i></span>
-                                        <img src="assets/img/profiles/avatar-20.jpg" alt="img" class="preview1">
-                                        <button type="button" class="profile-remove">
+                                        <img src="{{ asset('assets/img/profiles/avatar-20.jpg') }}" id="edit_logo_preview" alt="img" class="preview1">
+                                        <button type="button" class="profile-remove" onclick="$('#edit_company_logo').val(''); $('#edit_logo_preview').attr('src', '{{ asset('assets/img/profiles/avatar-20.jpg') }}');">
                                             <i class="ti ti-x"></i>
                                         </button>
                                     </div>
                                     <div class="profile-upload-content">
                                         <label class="profile-upload-btn">
                                             <i class="ti ti-file-broken"></i> Upload File
-                                            <input type="file" class="input-img">
+                                            <input type="file" id="edit_company_logo" name="company_logo" class="input-img">
                                         </label>
-                                        <p>JPG, GIF or PNG. Max size of 800K</p>
+                                        <p>JPG, GIF or PNG. Max size of 2MB</p>
                                     </div>
                                 </div>
                             </div>
@@ -821,128 +859,61 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="col-form-label">Company Name <span class="text-danger"> *</span></label>
-                                <input type="text" class="form-control" value="NovaWave LLC">
+                                <input type="text" class="form-control" name="name" id="edit_name" required>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="col-form-label">Email Address</label>
-                                <input type="email" class="form-control" value="robertson@gmail.com">
+                                <input type="email" class="form-control" name="company_email" id="edit_company_email">
                             </div>
                         </div>
                         <div class="col-md-12">
                             <div class="mb-3">
-                                <label class="col-form-label">Account URL</label>
-                                <input type="text" class="form-control" value="nw.example.com">
+                                <label class="col-form-label">Domain</label>
+                                <input type="text" class="form-control" name="domain" id="edit_domain">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="col-form-label">Phone Number <span class="text-danger"> *</span></label>
-                                <input type="text" class="form-control">
+                                <label class="col-form-label">Phone Number</label>
+                                <input type="text" class="form-control" name="phone" id="edit_phone">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="col-form-label">Website</label>
-                                <input type="text" class="form-control">
+                                <label class="col-form-label">Address</label>
+                                <input type="text" class="form-control" name="address" id="edit_address">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3 ">
-                                <label class="col-form-label">Password <span class="text-danger"> *</span></label>
+                                <label class="col-form-label">Update Superadmin Password</label>
                                 <div class="pass-group">
-                                    <input type="password" class="pass-input form-control">
+                                    <input type="password" class="pass-input form-control" name="password" id="edit_password">
                                     <span class="ti toggle-password ti-eye-off"></span>
                                 </div>
+                                <small class="text-muted">Leave blank to keep current password</small>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3 ">
-                                <label class="col-form-label">Confirm Password <span class="text-danger">
-                                        *</span></label>
+                                <label class="col-form-label">Confirm Password</label>
                                 <div class="pass-group">
-                                    <input type="password" class="pass-inputs form-control">
+                                    <input type="password" class="pass-inputs form-control" name="password_confirmation" id="edit_password_confirmation">
                                     <span class="ti toggle-passwords ti-eye-off"></span>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-12">
-                            <div class="mb-3">
-                                <label class="col-form-label">Address</label>
-                                <input type="text" class="form-control">
-                            </div>
-                        </div>
+                    </div>
                         <div class="col-md-6">
                             <div class="mb-3 ">
-                                <label class="col-form-label">Plan Name <span class="text-danger"> *</span></label>
-                                <select class="select">
-                                    <option>Select</option>
-                                    <option selected="">Advanced</option>
-                                    <option>Basic</option>
-                                    <option>Enterprise</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3 ">
-                                <label class="col-form-label">Plan Type <span class="text-danger"> *</span></label>
-                                <select class="select">
-                                    <option>Select</option>
-                                    <option>Monthly</option>
-                                    <option>Yearly</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="col-form-label">Currency <span class="text-danger"> *</span></label>
-                                <select class="select">
-                                    <option>Choose</option>
-                                    <option selected="">Dollar</option>
-                                    <option>Euro</option>
-                                    <option>Pound</option>
-                                    <option>Rupee</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="col-form-label">Language <span class="text-danger"> *</span></label>
-                                <select class="select">
-                                    <option>Choose</option>
-                                    <option selected="">English</option>
-                                    <option>Arabic</option>
-                                    <option>French</option>
-                                    <option>German</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-md-12">
-                            <div class="mb-0">
-                                <div class="radio-wrap">
-                                    <label class="col-form-label">Status</label>
-                                    <div class="d-flex flex-wrap">
-                                        <div class="me-2">
-                                            <input type="radio" class="status-radio" id="person2" name="leave"
-                                                checked="">
-                                            <label for="person2">Active</label>
-                                        </div>
-                                        <div>
-                                            <input type="radio" class="status-radio" id="Organization2"
-                                                name="leave">
-                                            <label for="Organization2">Inactive</label>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
             <div class="d-flex align-items-center justify-content-end">
                 <button type="button" data-bs-dismiss="offcanvas" class="btn btn-light me-2">Cancel</button>
-                <button type="submit" class="btn btn-primary">Create</button>
+                <button type="submit" class="btn btn-primary" id="btn_edit_company">Save Changes</button>
             </div>
         </form>
     </div>
@@ -1348,8 +1319,14 @@
     function initCompanyDetailsTable() {
         const tableId = '#boxes-lists';
         const table = $(tableId).DataTable({
+            order: [],
             ajax: {
                 url: '{{ route('get.company', ['box_slug' => request()->route('box_slug')]) }}',
+                data: function(d) {
+                    d.sort_by = window.currentSortBy || 'recently_added';
+                    if (window.currentStartDate) d.start_date = window.currentStartDate;
+                    if (window.currentEndDate) d.end_date = window.currentEndDate;
+                },
                 dataSrc: function(json) {
                     return json.success ? json.data : [];
                 }
@@ -1401,8 +1378,8 @@
                 },
 
                 {
-                    data: 'superadmin.email',
-                    render: (data) => data ?? '-'
+                    data: 'superadmin',
+                    render: (data) => data && data.email ? data.email : '-'
                 },
                 {
                     data: 'domain',
@@ -1425,10 +1402,11 @@
                     }
                 },
                 {
-                    data: 'superadmin.email_verified_at',
+                    data: 'superadmin',
                     render: (data) => {
-                        const badgeClass = data ? 'badge-success' : 'badge-warning';
-                        const label = data ? 'Verified' : 'Unverified';
+                        const verified = data && data.email_verified_at;
+                        const badgeClass = verified ? 'badge-success' : 'badge-warning';
+                        const label = verified ? 'Verified' : 'Unverified';
                         return `<span class="badge ${badgeClass}">${label}</span>`;
                     },
                     title: 'Email Status'
@@ -1449,6 +1427,11 @@
                             <i class="fa fa-ellipsis-v"></i>
                         </a>
                         <div class="dropdown-menu dropdown-menu-end">
+                            <a href="/{{ request()->route('box_slug') }}/superadmin/company/impersonate/${row.id}"
+                               target="_blank"
+                               class="dropdown-item text-primary">
+                                <i class="ti ti-login"></i> Login As Admin
+                            </a>
                             <a href="#"
                                class="dropdown-item view-company-btn"
                                data-bs-toggle="modal"
@@ -1456,22 +1439,60 @@
                                data-row-index="${meta.row}">
                                 <i class="ti ti-eye text-info"></i> View
                             </a>
-                            <a class="dropdown-item" href="#" data-bs-toggle="offcanvas" data-bs-target="#offcanvas_edit">
+                            <a class="dropdown-item edit-company-btn" href="#" data-bs-toggle="offcanvas" data-bs-target="#offcanvas_edit" data-id="${row.id}" data-row-index="${meta.row}">
                                 <i class="ti ti-edit text-blue"></i> Edit
                             </a>
-                            <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#delete_company">
+                            <a class="dropdown-item delete-company-btn" href="#" data-bs-toggle="modal" data-bs-target="#delete_company" data-id="${row.id}">
                                 <i class="ti ti-trash text-danger"></i> Delete
                             </a>
                         </div>
                     </div>`
                 }
-            ]
+            ],
+            drawCallback: function(settings) {
+                const count = this.api().page.info().recordsDisplay;
+                $('.count-title').text(count);
+            }
+        });
+
+        // Filter: Date Range
+        if ($('.bookingrange').length > 0) {
+            $('.bookingrange').on('apply.daterangepicker', function(ev, picker) {
+                window.currentStartDate = picker.startDate.format('DD/MM/YYYY');
+                window.currentEndDate = picker.endDate.format('DD/MM/YYYY');
+                table.ajax.reload();
+            });
+            $('.bookingrange').on('cancel.daterangepicker', function(ev, picker) {
+                $(this).val('');
+                window.currentStartDate = null;
+                window.currentEndDate = null;
+                table.ajax.reload();
+            });
+        }
+
+        // Filter: Sort By
+        $('.sort-item').on('click', function(e) {
+            e.preventDefault();
+            window.currentSortBy = $(this).data('sort');
+            table.ajax.reload();
+        });
+
+        // Toggle Columns
+        $('.toggle-column').on('change', function() {
+            var columnIdx = $(this).data('col');
+            var column = table.column(columnIdx);
+            column.visible($(this).is(':checked'));
         });
 
         // Select-all functionality
         $('#select-all').off('click').on('click', function() {
             const isChecked = this.checked;
             $(tableId).find('tbody input[type="checkbox"]').prop('checked', isChecked);
+        });
+        
+        // Search functionality
+        $('#company-search').on('keyup', function() {
+            table.search(this.value).draw();
         });
 
         // Click handler for View button
@@ -1514,6 +1535,65 @@
             $('#price').text(rowData.price || '-');
             $('#register_date').text(rowData.register_date || '-');
             $('#expire_date').text(rowData.expire_date || '-');
+        });
+
+        // Click handler for Edit button
+        $(tableId + ' tbody').off('click', 'a.edit-company-btn').on('click', 'a.edit-company-btn', function(e) {
+            e.preventDefault();
+            const rowIndex = $(this).data('row-index');
+            const rowData = table.row(rowIndex).data();
+            if (!rowData) return;
+
+            $('#edit_company_id').val(rowData.id);
+            $('#edit_name').val(rowData.name);
+            $('#edit_company_email').val(rowData.company_email);
+            $('#edit_domain').val(rowData.domain);
+            $('#edit_phone').val(rowData.phone);
+            $('#edit_address').val(rowData.address);
+            
+            $('#edit_password').val('');
+            $('#edit_password_confirmation').val('');
+            $('#edit_company_logo').val('');
+
+            if (rowData.company_logo) {
+                $('#edit_logo_preview').attr('src', `/storage/${rowData.company_logo}`);
+            } else {
+                $('#edit_logo_preview').attr('src', '{{ asset('assets/img/profiles/avatar-20.jpg') }}');
+            }
+        });
+
+        // Form Submit for Edit Company
+        $('#edit_company_form').on('submit', function(e) {
+            e.preventDefault();
+            const id = $('#edit_company_id').val();
+            const formData = new FormData(this);
+            const submitBtn = $('#btn_edit_company');
+            const originalText = submitBtn.text();
+            
+            submitBtn.prop('disabled', true).text('Saving...');
+            
+            $.ajax({
+                url: `/{{ request()->route('box_slug') }}/superadmin/company/update/${id}`,
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(res) {
+                    if (res.success) {
+                        $('#offcanvas_edit').offcanvas('hide');
+                        table.ajax.reload(null, false);
+                    } else {
+                        alert(res.message || 'Error updating company');
+                    }
+                },
+                error: function(xhr) {
+                    const err = xhr.responseJSON;
+                    alert(err?.message || 'Failed to update company');
+                },
+                complete: function() {
+                    submitBtn.prop('disabled', false).text(originalText);
+                }
+            });
         });
     }
 

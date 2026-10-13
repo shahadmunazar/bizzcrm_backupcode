@@ -88,35 +88,35 @@ class User extends Authenticatable implements AuditableContract
     {
         $allowrdUsersId = [$this->id];
 
-        // Assuming 'team' relationship points to a Team model which supports getDescendants (nested sets?)
+        // Fetch subordinates strictly using Reporting Manager hierarchy
+        $boxUser = \App\Models\BoxUser::where('user_id', $this->id)->first();
+        if ($boxUser) {
+            $subordinateIds = [];
+            \App\Models\BoxUser::getRecursiveSubordinates($boxUser->box_id, $boxUser->id, $subordinateIds);
+            
+            if (!empty($subordinateIds)) {
+                $subUserIds = \App\Models\BoxUser::whereIn('id', $subordinateIds)->pluck('user_id')->toArray();
+                $allowrdUsersId = array_merge($allowrdUsersId, $subUserIds);
+            }
+        }
+
+        // Fallback to legacy team logic if applicable
         if($this->team){
           $child = [];
-          
-          // Assuming the Team model uses a trait or has a method getDescendants
-          // The user code referenced $this->teams which might be wrong, they probably meant team() relation or property
-          // The user code: foreach ($this->teams->team->getDescendants() as $childTeam)
-          // It seems they assume the user has a "teams" relation that points to something that has a "team" relation.
-          // Adjusting to standard 'team' relation.
-          
           if (method_exists($this->team, 'getDescendants')) {
               foreach ($this->team->getDescendants() as $childTeam) {
                 $child[] = $childTeam->id;
               }
           }
           
-          // Assuming User is linked to Team via team_id in users table, OR via TeamUser pivot.
-          // User code uses TeamUser::select('user_id')...
-          if (!empty($child)) {
-             // We can check if TeamUser class exists, or use DB facade if not.
-             // Using \App\Models\TeamUser if exists, or just query users table if simpler.
-             // However, strictly following user code structure:
+          if (!empty($child) && class_exists('\App\Models\TeamUser')) {
              $childUsers = \App\Models\TeamUser::select('user_id')->whereIn('team_id',$child)->get();
              foreach ($childUsers as $childUser) {
                 $allowrdUsersId[]=$childUser['user_id'];
              }
           }
         }
-        return $allowrdUsersId;
+        return array_values(array_unique($allowrdUsersId));
     }
 
     public function subscriptions()
@@ -127,5 +127,10 @@ class User extends Authenticatable implements AuditableContract
     public function activeSubscription()
     {
         return SubscriptionHelper::getActiveSubscription($this);
+    }
+
+    public function starredLeads()
+    {
+        return $this->belongsToMany(Lead::class, 'lead_stars', 'user_id', 'lead_id')->withTimestamps();
     }
 }

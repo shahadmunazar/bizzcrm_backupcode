@@ -1254,11 +1254,17 @@
                                 <button class="btn btn-info btn-sm text-white regenerate-token-btn" type="button" data-id="${box_api.id}">Regenerate</button>
                             </div>
                         </div>
-                        <div class="mt-3">
-                            <button type="button" class="btn btn-outline-primary btn-sm w-100 show-guide-btn" 
+                        <div class="mt-3 d-flex gap-2">
+                            <button type="button" class="btn btn-outline-success btn-sm flex-fill test-webhook-btn" 
+                                data-id="${box_api.id}"
                                 data-endpoint="${baseUrl}/api/webhook/${box_api.id}" 
                                 data-token="${box_api.token}">
-                                <i class="ti ti-book me-1"></i> View Integration Guide
+                                <i class="ti ti-activity me-1"></i> Test Connection
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm flex-fill show-guide-btn" 
+                                data-endpoint="${baseUrl}/api/webhook/${box_api.id}" 
+                                data-token="${box_api.token}">
+                                <i class="ti ti-book me-1"></i> Integration Guide
                             </button>
                         </div>
                     `;
@@ -1865,6 +1871,39 @@
                 });
             });
 
+            // Test Webhook Connection Logic
+            $(document).on('click', '.test-webhook-btn', function () {
+                let btn = $(this);
+                let endpoint = btn.data('endpoint');
+                let token = btn.data('token');
+                let origHtml = btn.html();
+                btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Pinging...');
+
+                $.ajax({
+                    url: endpoint,
+                    type: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    },
+                    data: JSON.stringify({ ping: true }),
+                    success: function (res) {
+                        btn.prop('disabled', false).html(origHtml);
+                        if (res.success) {
+                            toastr.success(res.message || 'Webhook is verified and ready!');
+                            fetchIntegrations();
+                        } else {
+                            toastr.warning(res.message || 'Webhook check returned an issue.');
+                        }
+                    },
+                    error: function (xhr) {
+                        btn.prop('disabled', false).html(origHtml);
+                        let msg = xhr.responseJSON ? (xhr.responseJSON.message || xhr.responseJSON.error || JSON.stringify(xhr.responseJSON.errors)) : 'Webhook test failed';
+                        toastr.error(msg);
+                    }
+                });
+            });
+
             // Show Guide Logic
             $(document).on('click', '.show-guide-btn', function () {
                 let endpoint = $(this).data('endpoint');
@@ -1875,15 +1914,19 @@
     --header 'Content-Type: application/json' \\
     --header 'Authorization: Bearer ${token}' \\
     --data '{
-        "name": "John",
-        "email": "shahad1932@gmal.com"
+        "name": "Test Lead",
+        "phone": "9876543210",
+        "email": "lead@example.com",
+        "query": "Test inquiry from website form"
     }'`);
 
                 // Set cURL Form
                 $('#curl_form_code').text(`curl --location '${endpoint}' \\
     --header 'Authorization: Bearer ${token}' \\
-    --form 'name="John"' \\
-    --form 'email="shahad1932@gmal.com"'`);
+    --form 'name="Test Lead"' \\
+    --form 'phone="9876543210"' \\
+    --form 'email="lead@example.com"' \\
+    --form 'query="Test inquiry from website form"'`);
 
                 // Set Postman JSON
                 let postmanObj = {

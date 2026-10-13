@@ -17,6 +17,21 @@ class FinanceDashboardController extends Controller
 
     public function __construct(FinanceDashboardService $dashboardService)
     {
+        $this->middleware(function ($request, $next) {
+            $user = \Illuminate\Support\Facades\Auth::user();
+            if (!$user) return $next($request);
+
+            $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
+            $boxUser = \App\Models\BoxUser::where('user_id', $user->id)->first();
+            $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
+
+            if (!($isGlobalAdmin || $isBoxAdmin || \App\Helpers\PermissionHelper::hasModulePermission('finance_dashboard', 'read'))) {
+                abort(403, 'You do not have permission to access this module.');
+            }
+
+            return $next($request);
+        });
+
         $this->dashboardService = $dashboardService;
     }
 

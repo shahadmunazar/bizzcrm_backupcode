@@ -126,16 +126,9 @@ class AttendanceApiController extends Controller
                     continue;
                 }
 
-                try {
-                    // Extract just the time portion if endTime happens to be a full date string
-                    $timeOnly = Carbon::parse($endTime)->format('H:i:s');
-                    $fullEndDateTime = Carbon::parse($attendanceDate . ' ' . $timeOnly);
-                    
-                    if (now()->greaterThanOrEqualTo($fullEndDateTime)) {
-                        $attendanceToUpdate[] = $attendance->id;
-                    }
-                } catch (\Exception $e) {
-                    // Ignore invalid end times
+                $fullEndDateTime = Carbon::parse($attendanceDate . ' ' . $endTime);
+                if (now()->greaterThanOrEqualTo($fullEndDateTime)) {
+                    $attendanceToUpdate[] = $attendance->id;
                 }
             }
 
@@ -232,7 +225,7 @@ class AttendanceApiController extends Controller
         try {
             $user = Auth::id();
 
-            $boxUser = BoxUser::where('user_id', $user)->select('id', 'box_id')->first();
+            $boxUser = BoxUser::where('user_id', $user)->first();
             if (!$boxUser) {
                 return response()->json([
                     'success' => false,
@@ -245,7 +238,21 @@ class AttendanceApiController extends Controller
             $today = Carbon::today()->toDateString();
             $userModel = Auth::user();
 
-            $allSubordinateIds = BoxUser::getAllSubordinateIds($boxId, $userModel->id, $boxUser);
+            $isGlobalAdmin = $userModel->hasRole(['admin', 'superadmin'], 'web');
+            $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
+            $canRead = \App\Helpers\PermissionHelper::hasModulePermission('attendance', 'read', 'team_admin');
+
+            $allSubordinateIds = null;
+            if (!$isGlobalAdmin && !$isBoxAdmin) {
+                if ($canRead) {
+                    $allSubordinateIds = BoxUser::getAllSubordinateIds($boxId, $userModel->id, $boxUser);
+                } else {
+                    return response()->json([
+                        'status' => 403,
+                        'message' => 'You do not have permission to access team attendance.'
+                    ], 403);
+                }
+            }
 
             $query = Attendance::with([
                 'boxUser.user',
@@ -258,10 +265,13 @@ class AttendanceApiController extends Controller
                 'machine',
             ])
                 ->where('box_id', $boxId)
-                ->whereIn('box_user_id', $allSubordinateIds) // Filter by subordinates only
                 ->whereDate('attendance_date', '<=', $today)
                 ->orderBy('attendance_date', 'desc')
                 ->orderBy('id', 'desc');
+
+            if ($allSubordinateIds !== null) {
+                $query->whereIn('box_user_id', $allSubordinateIds);
+            }
 
             // Apply filters
             if ($request->filled('from_date') && $request->filled('to_date')) {
@@ -345,13 +355,7 @@ class AttendanceApiController extends Controller
                     continue;
                 }
 
-                try {
-                    $timeOnly = Carbon::parse($endTime)->format('H:i:s');
-                    $fullEndDateTime = Carbon::parse($attendanceDate . ' ' . $timeOnly);
-                } catch (\Exception $e) {
-                    continue; // Skip invalid end time formats
-                }
-                
+                $fullEndDateTime = Carbon::parse($attendanceDate . ' ' . $endTime);
                 if (now()->greaterThanOrEqualTo($fullEndDateTime)) {
                     $attendanceToUpdate[] = $attendance->id;
                 }

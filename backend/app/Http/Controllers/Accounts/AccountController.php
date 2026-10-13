@@ -8,9 +8,6 @@ use Carbon\Carbon;
 use App\Jobs\ExportReceiptsJob;
 use Illuminate\Support\Facades\{Auth, Storage};
 use Yajra\DataTables\Facades\DataTables;
-
-
-
 class AccountController extends Controller
 {
     /**

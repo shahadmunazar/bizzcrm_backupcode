@@ -152,6 +152,7 @@ class FacebookAuthController extends Controller
             ]);
 
             dispatch(new DepartmentCreateJob($box->id));
+            dispatch(new \App\Jobs\CreateStandardShiftJob($box->id));
 
             $companyPrefix = strtoupper(Str::substr($slug, 0, 2));
             $employeeId = $companyPrefix . '-01';

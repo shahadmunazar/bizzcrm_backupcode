@@ -772,7 +772,7 @@
 								</select>
 							</div>
 							<div class="alert alert-info">
-								<i class="ti ti-info-circle me-1"></i> Start and End dates will be automatically applied based on each company's individual <strong>start_date</strong> and <strong>end_date</strong> in the database.
+								<i class="ti ti-info-circle me-1"></i> Start and End dates will be taken from each company's <strong>start_date</strong> and <strong>end_date</strong>. If missing, it will automatically be set from <strong>today until next month</strong>.
 							</div>
 							<div class="text-end">
 								<button type="button" class="btn btn-light me-2" data-bs-dismiss="modal">Cancel</button>

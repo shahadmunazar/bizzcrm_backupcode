@@ -13,48 +13,78 @@ class ActivityStatusDataSeeder extends Seeder
     {
         Schema::disableForeignKeyConstraints();
 
-        $activityStatuses = DB::connection('bizzcrm_migrate')->table('activity_statuses')->get();
-        $this->command->info('Starting Activity Statuses Seeder from DB...');
-        $startTime = microtime(true);
+        $boxes = DB::table('boxes')->get();
+        $this->command->info('Starting Activity Statuses Seeder with default statuses and legacy statuses...');
 
-        $chunk = [];
-        $processed = 0;
+        $baseStatuses = [
+            'Call' => ['Busy', 'No Answer', 'Unavailable', 'Wrong Number', 'Done', 'Not Done'],
+            'Meeting' => ['Done', 'Not Done', 'Busy', 'No Answer'],
+            'Email' => ['Done', 'Not Done'],
+            'WhatsApp' => ['Done', 'Not Done'],
+            'Notes' => ['Done', 'Not Done'],
+            'General' => ['Done', 'Not Done'],
+        ];
 
-        foreach ($activityStatuses as $item) {
-            $row = (array) $item;
-            $processed++;
-            
-            $mappedRow = [
-                'id' => $row['id'] ?? null,
-                'activity_setting_id' => null,
-                'activity_type_id' => null,
-                'box_id' => $row['box_id'] ?? null,
-                'updated_by' => $row['last_updated_by'] ?? ($row['added_by'] ?? null),
-                'activity_status' => $row['name'] ?? null,
-                'status' => 1,
-                'deleted_at' => $row['deleted_at'] ?? null,
-                'created_at' => $row['created_at'] ?? null,
-                'updated_at' => $row['updated_at'] ?? null,
-            ];
-            
-            $chunk[] = $mappedRow;
+        foreach ($boxes as $box) {
+            // Fetch legacy statuses for this box
+            $legacyStatuses = DB::connection('bizzcrm_migrate')
+                ->table('activity_statuses')
+                ->where('box_id', $box->id)
+                ->pluck('name')
+                ->toArray();
 
-            if (count($chunk) >= 500) {
-                DB::transaction(function () use (&$chunk) {
-                    DB::table('activity_statuses')->insertOrIgnore($chunk);
-                });
-                $chunk = [];
+            $settings = DB::table('calls')->where('box_id', $box->id)->get();
+            foreach ($settings as $setting) {
+                // Get base statuses for this setting, default to ['Done', 'Not Done'] if not found
+                $base = $baseStatuses[$setting->name] ?? ['Done', 'Not Done'];
+                
+                // Seed legacy statuses first, then base statuses. Prevent duplicates (case-insensitive check)
+                $combined = array_merge($legacyStatuses, $base);
+                $mergedStatuses = [];
+                $seen = [];
+                
+                foreach ($combined as $statusName) {
+                    $statusName = trim($statusName);
+                    if (empty($statusName)) continue;
+                    
+                    $lower = strtolower($statusName);
+                    if (!in_array($lower, $seen)) {
+                        $seen[] = $lower;
+                        $mergedStatuses[] = $statusName;
+                    }
+                }
+
+                $types = DB::table('activity_types')
+                    ->where('box_id', $box->id)
+                    ->where('activity_setting_id', $setting->id)
+                    ->get();
+                    
+                foreach ($mergedStatuses as $statusName) {
+                    if (empty($statusName)) continue;
+                    foreach ($types as $type) {
+                        $exists = DB::table('activity_statuses')
+                            ->where('box_id', $box->id)
+                            ->where('activity_setting_id', $setting->id)
+                            ->where('activity_type_id', $type->id)
+                            ->where('activity_status', $statusName)
+                            ->exists();
+
+                        if (!$exists) {
+                            DB::table('activity_statuses')->insert([
+                                'box_id' => $box->id,
+                                'activity_setting_id' => $setting->id,
+                                'activity_type_id' => $type->id,
+                                'activity_status' => $statusName,
+                                'status' => 1,
+                                'created_at' => \Carbon\Carbon::now(),
+                                'updated_at' => \Carbon\Carbon::now(),
+                            ]);
+                        }
+                    }
+                }
             }
         }
 
-        if (count($chunk) > 0) {
-            DB::transaction(function () use (&$chunk) {
-                DB::table('activity_statuses')->insertOrIgnore($chunk);
-            });
-        }
-
-        $executionTime = round(microtime(true) - $startTime, 2);
-        $this->command->info("Processed {$processed} activity statuses in {$executionTime} seconds.");
         Schema::enableForeignKeyConstraints();
     }
 }

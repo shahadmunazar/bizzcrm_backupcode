@@ -3338,7 +3338,7 @@ class SettingsController extends Controller
 
         $query = Department::where('box_id', $box->id)->latest();
 
-        return \Yajra\DataTables\Facades\DataTables::of($query)
+        return DataTables::of($query)
             ->addColumn('id', function ($item) {
                 return $item->id;
             })
@@ -3385,7 +3385,6 @@ class SettingsController extends Controller
 
         $department = new Department();
         $department->box_id = $box->id;
-        $department->user_id = Auth::id();
         $department->name = $request->name;
         $department->status = $request->status;
         $department->save();
@@ -3434,7 +3433,7 @@ class SettingsController extends Controller
 
         $query = Team::with('department')->where('box_id', $box->id)->latest();
 
-        return \Yajra\DataTables\Facades\DataTables::of($query)
+        return DataTables::of($query)
             ->addColumn('department', function ($item) {
                 return $item->department ? $item->department->name : '-';
             })
@@ -3525,80 +3524,4 @@ class SettingsController extends Controller
 
         return response()->json(['success' => true, 'message' => 'Designation deleted successfully.']);
     }
-
-    public function getRolesAndEntities(Request $request)
-    {
-        $user = Auth::user();
-        $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
-        $box = $this->box;
-        $boxUser = $box ? BoxUser::where('user_id', $user->id)->where('box_id', $box->id)->first() : null;
-        $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
-
-        if (!($isGlobalAdmin || $isBoxAdmin || \App\Helpers\PermissionHelper::hasModulePermission('user_management', 'read', 'permissions'))) {
-            return response()->json(['success' => false, 'message' => 'You do not have permission to access permissions.'], 403);
-        }
-
-        // Return the entities
-        $roles = \Spatie\Permission\Models\Role::whereIn('name', ['admin', 'employee'])->get(['id', 'name']);
-        $departments = collect();
-        $teams = collect();
-        if ($box) {
-            $departments = \App\Models\Department::where('box_id', $box->id)->get(['id', 'name']);
-            $teams = \App\Models\Team::where('box_id', $box->id)->get(['id', 'name', 'department_id']);
-        }
-
-        \Log::info('getRolesAndEntities called', ['box_id' => $box ? $box->id : null, 'deps_count' => $departments->count(), 'roles_count' => $roles->count()]);
-
-        // Return the specific entity's permissions if requested
-        $roleId = $request->get('role_id');
-        $departmentId = $request->get('department_id');
-        $teamId = $request->get('team_id');
-
-        $assignedPermissions = [];
-        $targetEntity = null;
-
-        if ($teamId) {
-            $targetEntity = \App\Models\Team::find($teamId);
-        } elseif ($departmentId) {
-            $targetEntity = \App\Models\Department::find($departmentId);
-        } elseif ($roleId) {
-            $targetEntity = \Spatie\Permission\Models\Role::find($roleId);
-        }
-
-        if ($targetEntity) {
-            $assignedPermissions = $targetEntity->permissions()->pluck('id')->toArray();
-        }
-
-        return response()->json([
-            'success' => true,
-            'roles' => $roles,
-            'departments' => $departments,
-            'teams' => $teams,
-            'assigned_permissions' => $assignedPermissions
-        ]);
-    }
-
-    public function storeRole(Request $request)
-    {
-        $user = Auth::user();
-        $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
-        $boxUser = $this->box ? BoxUser::where('user_id', $user->id)->where('box_id', $this->box->id)->first() : null;
-        $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
-
-        if (!($isGlobalAdmin || $isBoxAdmin)) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized to create roles.'], 403);
-        }
-
-        $request->validate([
-            'name' => 'required|string|max:255|unique:roles,name',
-        ]);
-
-        \Spatie\Permission\Models\Role::create([
-            'name' => strtolower(str_replace(' ', '_', $request->name)),
-            'guard_name' => 'web'
-        ]);
-
-        return response()->json(['success' => true, 'message' => 'Role created successfully.']);
-    }
 }
-

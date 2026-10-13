@@ -38,6 +38,17 @@ class InvoiceController extends Controller
         }
         return view('accounts.invoices', compact('company_id', 'company'));
     }
+
+    public function proformaList(Request $request)
+    {
+        $boxUser = $this->getBoxContext();
+        $company_id = $request->query('company_id');
+        $company = null;
+        if ($company_id) {
+            $company = \App\Models\Company::where('box_id', $boxUser->box_id)->find($company_id);
+        }
+        return view('accounts.proforma_invoices', compact('company_id', 'company'));
+    }
     
     /**
      * Get invoices data as JSON.
@@ -46,12 +57,21 @@ class InvoiceController extends Controller
     {
         $boxUser = $this->getBoxContext();
         $company_id = $request->query('company_id');
+        $lead_id = $request->query('lead_id');
+        $type = $request->query('type', 'invoice');
         
         $query = \App\Models\Accounts\Invoice::where('box_id', $boxUser->box_id)
             ->with(['lead', 'company', 'items.product']);
             
+        if ($type !== 'all') {
+            $query->where('type', $type);
+        }
+            
         if ($company_id) {
             $query->where('company_id', $company_id);
+        }
+        if ($lead_id) {
+            $query->where('lead_id', $lead_id);
         }
         
         $invoices = $query->orderBy('id', 'desc')->get();
@@ -60,6 +80,7 @@ class InvoiceController extends Controller
         $data = $invoices->map(function ($invoice) {
             return [
                 'id' => $invoice->id,
+                'type' => $invoice->type,
                 'invoice_no' => $invoice->invoice_no,
                 'company_id' => $invoice->company_id,
                 'lead_id' => $invoice->lead_id,
@@ -125,6 +146,19 @@ class InvoiceController extends Controller
             'pagination' => [
                 'more' => $results->hasMorePages()
             ]
+        ]);
+    }
+    
+    public function ajaxPaymentModes(Request $request)
+    {
+        $boxUser = $this->getBoxContext();
+        $paymentModes = \App\Models\PaymentMode::where('box_id', $boxUser->box_id)
+            ->where('status', 'Enabled')
+            ->get(['id', 'name']);
+            
+        return response()->json([
+            'success' => true,
+            'data' => $paymentModes
         ]);
     }
 
@@ -194,6 +228,37 @@ class InvoiceController extends Controller
         ]);
     }
 
+    private function generateInvoiceNumber($boxId, $companyId, $type, $invoiceDate)
+    {
+        $settings = \App\Models\Accounts\InvoiceSetting::where('box_id', $boxId)
+            ->where(function($q) use ($companyId) {
+                $q->where('company_id', $companyId)->orWhereNull('company_id');
+            })
+            ->orderBy('company_id', 'desc')
+            ->first();
+
+        $prefix = $type === 'performa' ? 'PI-' : ($settings && $settings->invoice_prefix ? $settings->invoice_prefix : 'INV-');
+        
+        $query = \App\Models\Accounts\Invoice::where('box_id', $boxId)->where('type', $type);
+        
+        // Use the settings date boundaries to reset counter (if invoice date is within boundaries)
+        if ($settings && $settings->from_date && $settings->to_date) {
+            $query->whereBetween('invoice_date', [$settings->from_date, $settings->to_date]);
+        }
+        
+        // Ensure we only count invoices that share the SAME prefix
+        $query->where('invoice_no', 'like', $prefix . '%');
+        
+        $latestInvoice = $query->orderBy('system_number', 'desc')->first();
+        
+        $nextNumber = $latestInvoice ? $latestInvoice->system_number + 1 : 1;
+        
+        return [
+            'invoice_no' => $prefix . str_pad($nextNumber, 4, '0', STR_PAD_LEFT),
+            'system_number' => $nextNumber
+        ];
+    }
+
     public function store(Request $request)
     {
         try {
@@ -213,6 +278,7 @@ class InvoiceController extends Controller
             
             $invoice = new \App\Models\Accounts\Invoice();
             $invoice->box_id = $boxUser->box_id;
+            $invoice->type = $request->input('type', 'invoice');
             $invoice->company_id = $validated['company_id'];
             $invoice->lead_id = $validated['lead_id'];
             $invoice->amount = $validated['amount'];
@@ -228,11 +294,15 @@ class InvoiceController extends Controller
             $invoice->added_by = Auth::id();
             $invoice->last_updated_by = Auth::id();
             
-            // Generate invoice_no dynamically
-            $latestInvoice = \App\Models\Accounts\Invoice::where('box_id', $boxUser->box_id)->orderBy('id', 'desc')->first();
-            $nextNumber = $latestInvoice ? intval(preg_replace('/[^0-9]/', '', $latestInvoice->invoice_no)) + 1 : 1;
-            $invoice->invoice_no = 'INV-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
-            $invoice->system_number = $nextNumber;
+            // Generate invoice_no dynamically based on settings and financial year dates
+            $invoiceNumberData = $this->generateInvoiceNumber(
+                $boxUser->box_id, 
+                $invoice->company_id, 
+                $invoice->type, 
+                $invoice->invoice_date->format('Y-m-d')
+            );
+            $invoice->invoice_no = $invoiceNumberData['invoice_no'];
+            $invoice->system_number = $invoiceNumberData['system_number'];
             
             $invoice->save();
             
@@ -253,6 +323,20 @@ class InvoiceController extends Controller
                     }
                 }
             }
+            
+            \App\Models\Activity::create([
+                'box_id' => $boxUser->box_id,
+                'activity_id' => $invoice->lead_id,
+                'activity_type' => 'Lead',
+                'subject' => ($invoice->type === 'performa' ? 'Proforma Invoice Created' : 'Invoice Created') . ' - ' . $invoice->invoice_no,
+                'description' => 'Amount: ' . $invoice->amount . ' ' . ($invoice->currency ?? 'USD'),
+                'type' => 'Note',
+                'activity_date' => now(),
+                'added_by' => \Illuminate\Support\Facades\Auth::id(),
+                'assigned_to' => \Illuminate\Support\Facades\Auth::id(),
+                'status' => 'Close',
+                'last_updated_by' => \Illuminate\Support\Facades\Auth::id()
+            ]);
             
             return response()->json([
                 'success' => true,
@@ -326,6 +410,20 @@ class InvoiceController extends Controller
                 }
             }
             
+            \App\Models\Activity::create([
+                'box_id' => $boxUser->box_id,
+                'activity_id' => $invoice->lead_id,
+                'activity_type' => 'Lead',
+                'subject' => ($invoice->type === 'performa' ? 'Proforma Invoice Updated' : 'Invoice Updated') . ' - ' . $invoice->invoice_no,
+                'description' => 'Amount: ' . $invoice->amount . ' ' . ($invoice->currency ?? 'USD'),
+                'type' => 'Note',
+                'activity_date' => now(),
+                'added_by' => \Illuminate\Support\Facades\Auth::id(),
+                'assigned_to' => \Illuminate\Support\Facades\Auth::id(),
+                'status' => 'Close',
+                'last_updated_by' => \Illuminate\Support\Facades\Auth::id()
+            ]);
+            
             return response()->json([
                 'success' => true,
                 'message' => 'Invoice updated successfully!'
@@ -334,6 +432,61 @@ class InvoiceController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update invoice: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Convert a proforma invoice to a regular invoice.
+     */
+    public function convertToInvoice(Request $request, $box_slug, $id)
+    {
+        try {
+            $boxUser = $this->getBoxContext();
+            
+            $invoice = \App\Models\Accounts\Invoice::where('box_id', $boxUser->box_id)
+                                                   ->where('id', $id)
+                                                   ->where('type', 'performa')
+                                                   ->firstOrFail();
+                                                   
+            // Update type to invoice
+            $invoice->type = 'invoice';
+            
+            // Generate a new invoice number for it based on settings and dates
+            $invoiceNumberData = $this->generateInvoiceNumber(
+                $boxUser->box_id, 
+                $invoice->company_id, 
+                $invoice->type, 
+                $invoice->invoice_date->format('Y-m-d')
+            );
+            $invoice->invoice_no = $invoiceNumberData['invoice_no'];
+            $invoice->system_number = $invoiceNumberData['system_number'];
+            
+            $invoice->last_updated_by = \Illuminate\Support\Facades\Auth::id();
+            $invoice->save();
+            
+            \App\Models\Activity::create([
+                'box_id' => $boxUser->box_id,
+                'activity_id' => $invoice->lead_id,
+                'activity_type' => 'Lead',
+                'subject' => 'Proforma Converted to Invoice - ' . $invoice->invoice_no,
+                'description' => 'Amount: ' . $invoice->amount . ' ' . ($invoice->currency ?? 'USD'),
+                'type' => 'Note',
+                'activity_date' => now(),
+                'added_by' => \Illuminate\Support\Facades\Auth::id(),
+                'assigned_to' => \Illuminate\Support\Facades\Auth::id(),
+                'status' => 'Close',
+                'last_updated_by' => \Illuminate\Support\Facades\Auth::id()
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Proforma converted to Invoice successfully!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to convert invoice: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -447,6 +600,8 @@ class InvoiceController extends Controller
             $query,
             [
                 'invoice_prefix' => 'INV-',
+                'from_date' => date('Y') . '-04-01',
+                'to_date' => (date('Y') + 1) . '-03-31',
                 'invoice_due_days' => 5,
                 'enable_round_off' => true,
                 'round_off_type' => 'Up',
@@ -469,6 +624,8 @@ class InvoiceController extends Controller
             'logo_width' => 'nullable|integer|min:10|max:1000',
             'logo_height' => 'nullable|integer|min:10|max:1000',
             'invoice_prefix' => 'nullable|string|max:50',
+            'from_date' => 'nullable|date',
+            'to_date' => 'nullable|date',
             'invoice_due_days' => 'nullable|integer|min:0',
             'enable_round_off' => 'nullable|boolean',
             'round_off_type' => 'nullable|string|in:Up,Down',
@@ -477,7 +634,13 @@ class InvoiceController extends Controller
             'footer_terms' => 'nullable|string',
         ]);
 
-        $settings = \App\Models\Accounts\InvoiceSetting::firstOrNew(['box_id' => $boxUser->box_id]);
+        $query = ['box_id' => $boxUser->box_id];
+        if ($request->filled('company_id')) {
+            $query['company_id'] = $request->input('company_id');
+        } else {
+            $query['company_id'] = null;
+        }
+        $settings = \App\Models\Accounts\InvoiceSetting::firstOrNew($query);
 
         if ($request->filled('invoice_logo_base64')) {
             $base64Data = $request->input('invoice_logo_base64');
@@ -505,6 +668,8 @@ class InvoiceController extends Controller
         $settings->logo_width = $validated['logo_width'] ?? 250;
         $settings->logo_height = $validated['logo_height'] ?? 80;
         $settings->invoice_prefix = $validated['invoice_prefix'] ?? 'INV-';
+        $settings->from_date = $validated['from_date'] ?? null;
+        $settings->to_date = $validated['to_date'] ?? null;
         $settings->invoice_due_days = $validated['invoice_due_days'] ?? 5;
         $settings->enable_round_off = $request->has('enable_round_off');
         $settings->round_off_type = $validated['round_off_type'] ?? 'Up';

@@ -379,8 +379,8 @@
 										 </div>
 									 </div>
                                      <div class="text-end">
-                                          <p class="mb-1">Total Payable  </p>
-                                         <h4>₹3,650.00 </h4>
+                                          <p class="mb-1">Total Paid</p>
+                                         <h4>₹{{ number_format($totalPaid, 2) }}</h4>
                                      </div>
 								 </div>
 							 </div>
@@ -398,8 +398,8 @@
 										 </div>
 									 </div>
                                      <div class="text-end">
-                                         <p class="mb-1">Total Receivable  </p>
-                                         <h4>₹7,500.00  </h4>
+                                         <p class="mb-1">Total Approved</p>
+                                         <h4>₹{{ number_format($totalApproved, 2) }}</h4>
                                      </div>
 								 </div>
 							 </div>
@@ -417,8 +417,8 @@
 										 </div>
 									 </div>
                                      <div class="text-end">
-                                         <p class="mb-1">Overdue Payable  </p>
-                                         <h4>₹0.00 </h4>
+                                         <p class="mb-1">Total Pending</p>
+                                         <h4>₹{{ number_format($totalPending, 2) }}</h4>
                                      </div>
 								 </div>
 							 </div>
@@ -436,8 +436,8 @@
 										 </div>
 									 </div>
                                      <div class="text-end">
-                                         <p class="mb-1">Overdue Receivable  </p>
-                                         <h4>₹0.00 </h4>
+                                         <p class="mb-1">Total Rejected</p>
+                                         <h4>₹{{ number_format($totalRejected, 2) }}</h4>
                                      </div>
 								 </div>
 							 </div>
@@ -451,245 +451,21 @@
 								
 								
 								<div class="table-responsive custom-table">
-									<table class="table datatable">
+									<table class="table custom-table" id="paymentsTable">
 										<thead class="thead-light">
 											<tr>
-												<th>Company</th>
-												<th>Document Type</th>
-												<th>Document Number</th>
-												<th>Document Date</th>
-												<th>Payment Due Date</th>
-												<th>Amount to Pay</th>
-												<th>Amount Paid</th>
-												<th>Amount Set-Off</th>
-												<th>Split Amount</th>
-												<th>Advance Amount</th>
-												<th>Balance Amount</th>
-												<th>Last Modified At</th>
+												<th>Employee</th>
+												<th>Category</th>
+												<th>Date</th>
+												<th>Amount</th>
+												<th>Status</th>
+												<th>Approved By</th>
+												<th>Processed By</th>
+												<th>Payment Details</th>
 												<th class="text-end">Action</th>
 											</tr>
 										</thead>
-										<tbody>
-											<tr>
-								                <td>Shitender & Sons</td>
-								                <td>Invoice </td>
-								                <td>INV00001 (PO: PO00001)</td>
-								                <td>21/05/2025</td>
-								                <td>05/06/2025</td>
-								                <td>₹3,650.00</td>
-								                <td>₹0.00</td>
-								                <td>₹0.00 </td>
-								                <td>₹0.00 </td>
-								                <td>₹0.00</td>
-								                <td>₹3,650.00</td>
-								                <td>21/05/2025, 12:56 pm </td>
-												<td>
-													<div class="dropdown table-action">
-														<a href="#" class="action-icon " data-bs-toggle="dropdown" aria-expanded="false">
-															<i class="fa fa-ellipsis-v"></i>
-														</a>
-														<div class="dropdown-menu dropdown-menu-right">
-															<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#company_detail">
-																<i class="ti ti-eye text-info"></i>View
-															</a>
-															<a class="dropdown-item" href="#" data-bs-toggle="offcanvas" data-bs-target="#offcanvas_edit">
-																<i class="ti ti-edit text-blue"></i>Edit
-															</a>
-															<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#delete_company">
-																<i class="ti ti-trash text-danger"></i>Delete
-															</a>
-														</div>
-													</div>
-												</td>
-											</tr>
-											
-											<tr>
-								                <td>Shitender & Sons</td>
-								                <td>Invoice </td>
-								                <td>INV00001 (PO: PO00001)</td>
-								                <td>21/05/2025</td>
-								                <td>05/06/2025</td>
-								                <td>₹3,650.00</td>
-								                <td>₹0.00</td>
-								                <td>₹0.00 </td>
-								                <td>₹0.00 </td>
-								                <td>₹0.00</td>
-								                <td>₹3,650.00</td>
-								                <td>21/05/2025, 12:56 pm </td>
-												<td>
-													<div class="dropdown table-action">
-														<a href="#" class="action-icon " data-bs-toggle="dropdown" aria-expanded="false">
-															<i class="fa fa-ellipsis-v"></i>
-														</a>
-														<div class="dropdown-menu dropdown-menu-right">
-															<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#company_detail">
-																<i class="ti ti-eye text-info"></i>View
-															</a>
-															<a class="dropdown-item" href="#" data-bs-toggle="offcanvas" data-bs-target="#offcanvas_edit">
-																<i class="ti ti-edit text-blue"></i>Edit
-															</a>
-															<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#delete_company">
-																<i class="ti ti-trash text-danger"></i>Delete
-															</a>
-														</div>
-													</div>
-												</td>
-											</tr>
-											
-											<tr>
-								                <td>Shitender & Sons</td>
-								                <td>Invoice </td>
-								                <td>INV00001 (PO: PO00001)</td>
-								                <td>21/05/2025</td>
-								                <td>05/06/2025</td>
-								                <td>₹3,650.00</td>
-								                <td>₹0.00</td>
-								                <td>₹0.00 </td>
-								                <td>₹0.00 </td>
-								                <td>₹0.00</td>
-								                <td>₹3,650.00</td>
-								                <td>21/05/2025, 12:56 pm </td>
-												<td>
-													<div class="dropdown table-action">
-														<a href="#" class="action-icon " data-bs-toggle="dropdown" aria-expanded="false">
-															<i class="fa fa-ellipsis-v"></i>
-														</a>
-														<div class="dropdown-menu dropdown-menu-right">
-															<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#company_detail">
-																<i class="ti ti-eye text-info"></i>View
-															</a>
-															<a class="dropdown-item" href="#" data-bs-toggle="offcanvas" data-bs-target="#offcanvas_edit">
-																<i class="ti ti-edit text-blue"></i>Edit
-															</a>
-															<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#delete_company">
-																<i class="ti ti-trash text-danger"></i>Delete
-															</a>
-														</div>
-													</div>
-												</td>
-											</tr>
-											
-											<tr>
-								                <td>Shitender & Sons</td>
-								                <td>Invoice </td>
-								                <td>INV00001 (PO: PO00001)</td>
-								                <td>21/05/2025</td>
-								                <td>05/06/2025</td>
-								                <td>₹3,650.00</td>
-								                <td>₹0.00</td>
-								                <td>₹0.00 </td>
-								                <td>₹0.00 </td>
-								                <td>₹0.00</td>
-								                <td>₹3,650.00</td>
-								                <td>21/05/2025, 12:56 pm </td>
-												<td>
-													<div class="dropdown table-action">
-														<a href="#" class="action-icon " data-bs-toggle="dropdown" aria-expanded="false">
-															<i class="fa fa-ellipsis-v"></i>
-														</a>
-														<div class="dropdown-menu dropdown-menu-right">
-															<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#company_detail">
-																<i class="ti ti-eye text-info"></i>View
-															</a>
-															<a class="dropdown-item" href="#" data-bs-toggle="offcanvas" data-bs-target="#offcanvas_edit">
-																<i class="ti ti-edit text-blue"></i>Edit
-															</a>
-															<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#delete_company">
-																<i class="ti ti-trash text-danger"></i>Delete
-															</a>
-														</div>
-													</div>
-												</td>
-											</tr>
-											
-											<tr>
-								                <td>Shitender & Sons</td>
-								                <td>Invoice </td>
-								                <td>INV00001 (PO: PO00001)</td>
-								                <td>21/05/2025</td>
-								                <td>05/06/2025</td>
-								                <td>₹3,650.00</td>
-								                <td>₹0.00</td>
-								                <td>₹0.00 </td>
-								                <td>₹0.00 </td>
-								                <td>₹0.00</td>
-								                <td>₹3,650.00</td>
-								                <td>21/05/2025, 12:56 pm </td>
-												<td>
-													<div class="dropdown table-action">
-														<a href="#" class="action-icon " data-bs-toggle="dropdown" aria-expanded="false">
-															<i class="fa fa-ellipsis-v"></i>
-														</a>
-														<div class="dropdown-menu dropdown-menu-right">
-															<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#company_detail">
-																<i class="ti ti-eye text-info"></i>View
-															</a>
-															<a class="dropdown-item" href="#" data-bs-toggle="offcanvas" data-bs-target="#offcanvas_edit">
-																<i class="ti ti-edit text-blue"></i>Edit
-															</a>
-															<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#delete_company">
-																<i class="ti ti-trash text-danger"></i>Delete
-															</a>
-														</div>
-													</div>
-												</td>
-											</tr>
-											
-											<tr>
-								                <td>Shitender & Sons</td>
-								                <td>Invoice </td>
-								                <td>INV00001 (PO: PO00001)</td>
-								                <td>21/05/2025</td>
-								                <td>05/06/2025</td>
-								                <td>₹3,650.00</td>
-								                <td>₹0.00</td>
-								                <td>₹0.00 </td>
-								                <td>₹0.00 </td>
-								                <td>₹0.00</td>
-								                <td>₹3,650.00</td>
-								                <td>21/05/2025, 12:56 pm </td>
-												<td>
-													<div class="dropdown table-action">
-														<a href="#" class="action-icon " data-bs-toggle="dropdown" aria-expanded="false">
-															<i class="fa fa-ellipsis-v"></i>
-														</a>
-														<div class="dropdown-menu dropdown-menu-right">
-															<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#company_detail">
-																<i class="ti ti-eye text-info"></i>View
-															</a>
-															<a class="dropdown-item" href="#" data-bs-toggle="offcanvas" data-bs-target="#offcanvas_edit">
-																<i class="ti ti-edit text-blue"></i>Edit
-															</a>
-															<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#delete_company">
-																<i class="ti ti-trash text-danger"></i>Delete
-															</a>
-														</div>
-													</div>
-												</td>
-											</tr>
-											
-											
-											
-											
-											
-											
-											
-											
-											
-											
-											
-											
-											
-											
-											
-											
-											
-											
-											
-											
-											
-											
-										</tbody>
+										<tbody></tbody>
 										</table>
 										</div>
 								
@@ -848,3 +624,30 @@
 	</div>
 	
 @endsection
+
+@push('scripts')
+<script>
+$(document).ready(function() {
+    $('#paymentsTable').DataTable({
+        processing: true,
+        serverSide: true,
+        ajax: "{{ route('fieldstracking.payments.data', $box->slug) }}",
+        columns: [
+            { data: 'employee', name: 'employee', orderable: false, searchable: false },
+            { data: 'category', name: 'category', orderable: false, searchable: false },
+            { data: 'date', name: 'expense_date' },
+            { data: 'amount', name: 'amount' },
+            { data: 'status', name: 'status' },
+            { data: 'approved_by', name: 'approved_by', orderable: false, searchable: false },
+            { data: 'processed_by', name: 'processed_by', orderable: false, searchable: false },
+            { data: 'payment_details', name: 'payment_details', orderable: false, searchable: false },
+            { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-end' }
+        ],
+        language: {
+            search: '',
+            searchPlaceholder: 'Search...'
+        }
+    });
+});
+</script>
+@endpush

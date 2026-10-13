@@ -75,8 +75,14 @@ Route::group(['prefix' => '{box_slug}', 'middleware' => ['auth:sanctum', 'check.
     Route::get('/location/route', [LocationTrackingApiController::class, 'route']);
 
     Route::get('/me', [ApiAuthController::class, 'me']);
+    
+    // Subscription APIs
+    Route::get('/subscription/dashboard', [\App\Http\Controllers\Api\SubscriptionApiController::class, 'dashboard']);
+    Route::get('/subscription/invoices', [\App\Http\Controllers\Api\SubscriptionApiController::class, 'invoices']);
+
     Route::get('/account/delete-link', [\App\Http\Controllers\Api\AccountDeletionController::class, 'getAccountDeleteLink']);
     Route::post('/check-permission', [ApiAuthController::class, 'checkPermission']);
+    Route::get('/sidebar-menus', [ApiAuthController::class, 'getSidebarMenus']);
     Route::get('/users', [ApiAuthController::class, 'getBoxUsers'])->middleware('permission.box:user_management.employee_list.read');
     Route::get('/call-logs', [CallLogController::class, 'apiIndex'])->middleware('permission.box:app_settings.calls.read');
     Route::post('/call-logs', [CallLogController::class, 'apiStore'])->middleware('permission.box:app_settings.calls.create');
@@ -155,22 +161,12 @@ Route::group(['prefix' => '{box_slug}', 'middleware' => ['auth:sanctum', 'check.
     Route::post('/attendance/device/punch', [\App\Http\Controllers\Api\AttendanceDeviceController::class, 'punch'])->middleware('permission.box:attendance.device_register.create');
     Route::post('/device/register-fcm-token', [\App\Http\Controllers\Api\DeviceController::class, 'registerToken']);
 
-    // Admin Device Register APIs
-    Route::get('/device-register', [\App\Http\Controllers\DeviceRegisterController::class, 'index'])->middleware('permission.box:attendance.device_register.read');
-    Route::post('/device-register', [\App\Http\Controllers\DeviceRegisterController::class, 'store'])->middleware('permission.box:attendance.device_register.create');
-    Route::get('/device-register/{id}/edit', [\App\Http\Controllers\DeviceRegisterController::class, 'edit'])->middleware('permission.box:attendance.device_register.update');
-    Route::post('/device-register/update', [\App\Http\Controllers\DeviceRegisterController::class, 'update'])->middleware('permission.box:attendance.device_register.update');
-    Route::post('/device-register/approve/{id}', [\App\Http\Controllers\DeviceRegisterController::class, 'approve'])->middleware('permission.box:attendance.device_register.update');
-    Route::post('/device-register/revoke/{id}', [\App\Http\Controllers\DeviceRegisterController::class, 'revoke'])->middleware('permission.box:attendance.device_register.update');
-    Route::delete('/device-register/{id}', [\App\Http\Controllers\DeviceRegisterController::class, 'destroy'])->middleware('permission.box:attendance.device_register.delete');
-
-    // Enrolled Fingerprints
-    Route::get('/mobile-attendance/fingerprints', [\App\Http\Controllers\MobileAttendanceReportController::class, 'fingerprints'])->middleware('permission.box:attendance.device_register.read');
-    Route::post('/mobile-attendance/fingerprints/revoke/{id}', [\App\Http\Controllers\MobileAttendanceReportController::class, 'revokeFingerprint'])->middleware('permission.box:attendance.device_register.update');
-    Route::delete('/mobile-attendance/fingerprints/{id}', [\App\Http\Controllers\MobileAttendanceReportController::class, 'destroyFingerprint'])->middleware('permission.box:attendance.device_register.delete');
-
-    // Mobile Punches
-    Route::get('/mobile-attendance/punches', [\App\Http\Controllers\MobileAttendanceReportController::class, 'punches'])->middleware('permission.box:attendance.device_register.read');
+    // Notifications API
+    Route::get('/notifications', [\App\Http\Controllers\Api\NotificationApiController::class, 'index']);
+    Route::get('/notifications/unread-count', [\App\Http\Controllers\Api\NotificationApiController::class, 'unreadCount']);
+    Route::post('/notifications/{id}/read', [\App\Http\Controllers\Api\NotificationApiController::class, 'markAsRead']);
+    Route::post('/notifications/read-all', [\App\Http\Controllers\Api\NotificationApiController::class, 'markAllAsRead']);
+    Route::get('/employee-dashboard-notifications', [\App\Http\Controllers\Api\NotificationApiController::class, 'dashboardNotifications']);
 
     // Admin Attendance API
     Route::get('/attendance/admin', [\App\Http\Controllers\Api\AttendanceApiController::class, 'adminAttendance'])->middleware('permission.box:attendance.admin.read');
@@ -195,79 +191,6 @@ Route::group(['prefix' => '{box_slug}', 'middleware' => ['auth:sanctum', 'check.
     // Column Preferences APIs (used across data tables)
     Route::get('/settings/column-preferences', [\App\Http\Controllers\Setting\SettingsController::class, 'getColumnPreferences']);
     Route::post('/settings/column-preferences', [\App\Http\Controllers\Setting\SettingsController::class, 'saveColumnPreferences']);
-
-    // Company Branches API
-    Route::get('/company-branches', [\App\Http\Controllers\Setting\CompanyBranchController::class, 'branchindex']);
-    Route::post('/company-branches', [\App\Http\Controllers\Setting\CompanyBranchController::class, 'branchstore']);
-    Route::put('/company-branches', [\App\Http\Controllers\Setting\CompanyBranchController::class, 'branchupdate']);
-    Route::delete('/company-branches', [\App\Http\Controllers\Setting\CompanyBranchController::class, 'branchdestroy']);
-
-    // Employee Type Settings API
-    Route::get('/settings/employee-types', [\App\Http\Controllers\Setting\EmployeeTypeController::class, 'index']);
-    Route::post('/settings/employee-types', [\App\Http\Controllers\Setting\EmployeeTypeController::class, 'store']);
-    Route::put('/settings/employee-types', [\App\Http\Controllers\Setting\EmployeeTypeController::class, 'update']);
-    Route::delete('/settings/employee-types', [\App\Http\Controllers\Setting\EmployeeTypeController::class, 'destroy']);
-
-    // Work Mode Settings API
-    Route::get('/settings/work-modes', [\App\Http\Controllers\Setting\WorkModeController::class, 'work_mode_index']);
-    Route::post('/settings/work-modes', [\App\Http\Controllers\Setting\WorkModeController::class, 'work_mode_store']);
-    Route::put('/settings/work-modes', [\App\Http\Controllers\Setting\WorkModeController::class, 'work_mode_update']);
-    Route::delete('/settings/work-modes', [\App\Http\Controllers\Setting\WorkModeController::class, 'work_mode_destroy']);
-
-    // Roles & Permissions Settings API
-    Route::get('/settings/roles-permissions/entities', [\App\Http\Controllers\Setting\SettingsController::class, 'getRolesAndEntities']);
-    Route::post('/settings/roles-permissions/update', [\App\Http\Controllers\Setting\SettingsController::class, 'updateRolePermissions']);
-    Route::post('/settings/roles', [\App\Http\Controllers\Setting\SettingsController::class, 'storeRole']);
-    
-    // Departments Settings API
-    Route::get('/settings/departments', [\App\Http\Controllers\Setting\SettingsController::class, 'getDepartmentsList']);
-    Route::post('/settings/departments', [\App\Http\Controllers\Setting\SettingsController::class, 'storeDepartment']);
-    Route::put('/settings/departments/{id}', [\App\Http\Controllers\Setting\SettingsController::class, 'updateDepartment']);
-    Route::delete('/settings/departments/{id}', [\App\Http\Controllers\Setting\SettingsController::class, 'deleteDepartment']);
-
-    // Designations Settings API
-    Route::get('/settings/designations', [\App\Http\Controllers\Setting\SettingsController::class, 'getDesignationsList']);
-    Route::post('/settings/designations', [\App\Http\Controllers\Setting\SettingsController::class, 'storeDesignation']);
-    Route::put('/settings/designations/{id}', [\App\Http\Controllers\Setting\SettingsController::class, 'updateDesignation']);
-    Route::delete('/settings/designations/{id}', [\App\Http\Controllers\Setting\SettingsController::class, 'deleteDesignation']);
-
-    // Todo API
-    Route::get('/todo', [\App\Http\Controllers\Employee\EmployeeFrontendController::class, 'todo']);
-    Route::get('/todo/stats', [\App\Http\Controllers\Employee\EmployeeFrontendController::class, 'taskStats']);
-    Route::post('/todo', [\App\Http\Controllers\Employee\EmployeeFrontendController::class, 'storeTodo']);
-    Route::put('/todo/{id}', [\App\Http\Controllers\Employee\EmployeeFrontendController::class, 'updateTodo']);
-    Route::delete('/todo/{id}', [\App\Http\Controllers\Employee\EmployeeFrontendController::class, 'destroyTodo']);
-
-    // Projects API
-    Route::get('/manage-users/projects/options/project-types', [\App\Http\Controllers\Employee\ProjectController::class, 'getProjectTypes']);
-    Route::get('/manage-users/projects/options/project-categories', [\App\Http\Controllers\Employee\ProjectController::class, 'getProjectCategories']);
-    Route::get('/manage-users/projects/options/users', [\App\Http\Controllers\Employee\ProjectController::class, 'getUsers']);
-    Route::get('/manage-users/projects/options/leads', [\App\Http\Controllers\Employee\ProjectController::class, 'getLeads']);
-    Route::get('/manage-users/projects/export/excel', [\App\Http\Controllers\Employee\ProjectController::class, 'exportExcel']);
-    Route::get('/manage-users/projects/export/pdf', [\App\Http\Controllers\Employee\ProjectController::class, 'exportPDF']);
-    Route::get('/manage-users/projects/contacts', [\App\Http\Controllers\Employee\ProjectController::class, 'contactsIndex']);
-    Route::post('/manage-users/projects/contacts', [\App\Http\Controllers\Employee\ProjectController::class, 'storeContact']);
-    Route::delete('/manage-users/projects/contacts/{id}', [\App\Http\Controllers\Employee\ProjectController::class, 'destroyContact']);
-    Route::get('/manage-users/projects/contacts/{id}', [\App\Http\Controllers\Employee\ProjectController::class, 'showContact']);
-    Route::post('/manage-users/projects/contacts/{id}', [\App\Http\Controllers\Employee\ProjectController::class, 'updateContact']);
-    Route::get('/manage-users/projects/{id}/contacts-json', [\App\Http\Controllers\Employee\ProjectController::class, 'getContactsJson']);
-    Route::get('/manage-users/projects', [\App\Http\Controllers\Employee\ProjectController::class, 'index']);
-    Route::post('/manage-users/projects', [\App\Http\Controllers\Employee\ProjectController::class, 'store']);
-    Route::get('/manage-users/projects/{id}', [\App\Http\Controllers\Employee\ProjectController::class, 'show']);
-    Route::put('/manage-users/projects/{id}', [\App\Http\Controllers\Employee\ProjectController::class, 'update']);
-    Route::delete('/manage-users/projects/{id}', [\App\Http\Controllers\Employee\ProjectController::class, 'destroy']);
-    Route::get('/manage-users/project-types', [\App\Http\Controllers\Setting\ProjectSettingsController::class, 'types']);
-    Route::post('/manage-users/project-types', [\App\Http\Controllers\Setting\ProjectSettingsController::class, 'storeType']);
-    Route::put('/manage-users/project-types', [\App\Http\Controllers\Setting\ProjectSettingsController::class, 'updateType']);
-    Route::delete('/manage-users/project-types', [\App\Http\Controllers\Setting\ProjectSettingsController::class, 'destroyType']);
-    
-    Route::get('/manage-users/project-categories', [\App\Http\Controllers\Setting\ProjectSettingsController::class, 'categories']);
-    Route::post('/manage-users/project-categories', [\App\Http\Controllers\Setting\ProjectSettingsController::class, 'storeCategory']);
-    Route::put('/manage-users/project-categories', [\App\Http\Controllers\Setting\ProjectSettingsController::class, 'updateCategory']);
-    Route::delete('/manage-users/project-categories', [\App\Http\Controllers\Setting\ProjectSettingsController::class, 'destroyCategory']);
-
-    Route::get('/manage-users/projects-json', [\App\Http\Controllers\Employee\EmployeeFrontendController::class, 'getProjectsJson']);
-
 
     // Biometric Machine API
     Route::get('/biometric-machines/timezones', [\App\Http\Controllers\Api\BiometricMachineApiController::class, 'getTimezones'])->middleware('permission.box:attendance.biometric.read');
@@ -332,36 +255,8 @@ Route::group(['prefix' => '{box_slug}', 'middleware' => ['auth:sanctum', 'check.
     Route::get('/leaves/transactions/calculate-team-all', [\App\Http\Controllers\Employee\LeaveTransactionController::class, 'calculate_team_leave_transactions_all'])->middleware('permission.box:attendance.leave_transaction.update');
 
     // Employee List APIs (Dropdown helpers)
-    Route::get('/employees/list', [\App\Http\Controllers\Employee\EmployeManageController::class, 'fetch_employee'])->middleware('permission.box:user_management.employee_list.read');
-    Route::get('/employees/details', [\App\Http\Controllers\Employee\EmployeManageController::class, 'employee_details_admin'])->middleware('permission.box:user_management.employee_list.read');
-    
-    // Employee Detail Updates
-    Route::put('/employees/update-family', [\App\Http\Controllers\Employee\EmployeManageController::class, 'employee_family'])->middleware('permission.box:user_management.employee_list.update');
-    Route::put('/employees/update-education', [\App\Http\Controllers\Employee\EmployeManageController::class, 'employee_education'])->middleware('permission.box:user_management.employee_list.update');
-    Route::put('/employees/update-experience', [\App\Http\Controllers\Employee\EmployeManageController::class, 'employee_experience'])->middleware('permission.box:user_management.employee_list.update');
-    Route::put('/employees/update-bank-safety', [\App\Http\Controllers\Employee\EmployeManageController::class, 'employee_bank_safety'])->middleware('permission.box:user_management.employee_list.update');
-    Route::put('/employees/update-bank', [\App\Http\Controllers\Employee\EmployeManageController::class, 'update_bank_employee'])->middleware('permission.box:user_management.employee_list.update');
-    Route::put('/employees/update-emergency', [\App\Http\Controllers\Employee\EmployeManageController::class, 'employee_emergency'])->middleware('permission.box:user_management.employee_list.update');
-    
-    // Employee Detail Deletions
-    Route::delete('/employees/delete-bank', [\App\Http\Controllers\Employee\EmployeManageController::class, 'delete_bank'])->middleware('permission.box:user_management.employee_list.update');
-    Route::delete('/employees/delete-family', [\App\Http\Controllers\Employee\EmployeManageController::class, 'delete_family_info'])->middleware('permission.box:user_management.employee_list.update');
-    Route::delete('/employees/delete-education', [\App\Http\Controllers\Employee\EmployeManageController::class, 'delete_emp_education'])->middleware('permission.box:user_management.employee_list.update');
-    Route::delete('/employees/delete-experience', [\App\Http\Controllers\Employee\EmployeManageController::class, 'delete_emp_experience'])->middleware('permission.box:user_management.employee_list.update');
-    Route::delete('/employees/delete-emergency', [\App\Http\Controllers\Employee\EmployeManageController::class, 'delete_emp_emergency'])->middleware('permission.box:user_management.employee_list.update');
-    
-    // Additional Employee Actions
-    Route::post('/employees/map-machine', [\App\Http\Controllers\Employee\EmployeManageController::class, 'mapToAssign'])->middleware('permission.box:user_management.employee_list.update');
-    Route::get('/employees/assign-shift-list', [\App\Http\Controllers\Employee\ShiftController::class, 'attendance_shift'])->middleware('permission.box:user_management.employee_list.read');
-    Route::post('/employees/assign-shift', [\App\Http\Controllers\Employee\EmployeManageController::class, 'shiftemployeassign'])->middleware('permission.box:user_management.employee_list.update');
-    Route::post('/employees/toggle-location-tracking', [\App\Http\Controllers\Employee\EmployeManageController::class, 'toggleLocationTracking'])->middleware('permission.box:user_management.employee_list.update');
-    Route::get('/departments', [\App\Http\Controllers\Employee\EmployeManageController::class, 'department_manage'])->middleware('permission.box:user_management.employee_list.read');
-    Route::get('/employee-types', [\App\Http\Controllers\Employee\EmployeManageController::class, 'getEmployeeTypes'])->middleware('permission.box:user_management.employee_list.read');
-    Route::get('/get-employee-id', [\App\Http\Controllers\Employee\EmployeManageController::class, 'checkemploye_id'])->middleware('permission.box:user_management.employee_list.read');
-    Route::post('/create-employee', [\App\Http\Controllers\Employee\EmployeManageController::class, 'store_employee'])->middleware('permission.box:user_management.employee_list.create');
-    Route::put('/employees/{id}', [\App\Http\Controllers\Employee\EmployeManageController::class, 'employee_update'])->middleware('permission.box:user_management.employee_list.update');
-    Route::delete('/employees/{id}', [\App\Http\Controllers\Employee\EmployeManageController::class, 'delete_employee'])->middleware('permission.box:user_management.employee_list.delete');
-    Route::get('/permissions', [\App\Http\Controllers\Employee\EmployeManageController::class, 'getPermissions']);
+    Route::get('/employees/list', [\App\Http\Controllers\Employee\EmployeManageController::class, 'getBoxUsers'])->middleware('permission.box:user_management.employee_list.read');
+
     // Holiday APIs
     Route::get('/holidays', [\App\Http\Controllers\Employee\HolidayController::class, 'getHolidayData'])->middleware('permission.box:attendance.holiday.read');
     Route::post('/holidays', [\App\Http\Controllers\Employee\HolidayController::class, 'holiday_post'])->middleware('permission.box:attendance.holiday.create');
@@ -387,7 +282,6 @@ Route::group(['prefix' => '{box_slug}', 'middleware' => ['auth:sanctum', 'check.
 
     // Shift APIs
     Route::get('/shifts/details', [\App\Http\Controllers\Employee\ShiftController::class, 'ShiftDetails'])->middleware('permission.box:attendance.shift.read');
-    Route::get('/shifts/list', [\App\Http\Controllers\Employee\ShiftController::class, 'Shiftdata']);
     Route::post('/shifts', [\App\Http\Controllers\Employee\ShiftController::class, 'store_shift'])->middleware('permission.box:attendance.shift.create');
     Route::put('/shifts', [\App\Http\Controllers\Employee\ShiftController::class, 'updateShift'])->middleware('permission.box:attendance.shift.update');
     Route::delete('/shifts', [\App\Http\Controllers\Employee\ShiftController::class, 'deleteShift'])->middleware('permission.box:attendance.shift.delete');
@@ -408,39 +302,52 @@ Route::group(['prefix' => '{box_slug}', 'middleware' => ['auth:sanctum', 'check.
         Route::post('/otp/resend', [\App\Http\Controllers\Api\AccountDeletionController::class, 'resendOtp']);
         Route::post('/cancel', [\App\Http\Controllers\Api\AccountDeletionController::class, 'cancel']);
     });
+});
 
-    // Deals APIs
-    Route::get('/manage-users/deals-json', [\App\Http\Controllers\Employee\EmployeeFrontendController::class, 'getReactDealsJson']);
-    Route::post('/manage-users/deals', [\App\Http\Controllers\Employee\EmployeeFrontendController::class, 'storeDeal']);
-    Route::put('/manage-users/deals/{id}', [\App\Http\Controllers\Employee\EmployeeFrontendController::class, 'updateDeal']);
-    Route::delete('/manage-users/deals/{id}', [\App\Http\Controllers\Employee\EmployeeFrontendController::class, 'destroyDeal']);
-    Route::get('/manage-users/deals-form-options', [\App\Http\Controllers\Employee\EmployeeFrontendController::class, 'getDealFormOptions']);
-    Route::get('/manage-users/deals-leads-search', [\App\Http\Controllers\Employee\EmployeeFrontendController::class, 'searchLeads']);
+Route::middleware('auth:api')->group(function () {
+    Route::get('/finance/dashboard', [\App\Http\Controllers\Api\FinanceApiController::class, 'dashboard']);
+    // Finance Settings APIs
+    Route::prefix('finance/settings')->group(function () {
+        // Allowance Types
+        Route::get('allowance-types', [\App\Http\Controllers\Api\FinanceSettingsApiController::class, 'getAllowanceTypes']);
+        Route::post('allowance-types', [\App\Http\Controllers\Api\FinanceSettingsApiController::class, 'storeAllowanceType']);
+        Route::put('allowance-types/{id}', [\App\Http\Controllers\Api\FinanceSettingsApiController::class, 'updateAllowanceType']);
+        Route::delete('allowance-types/{id}', [\App\Http\Controllers\Api\FinanceSettingsApiController::class, 'deleteAllowanceType']);
+        Route::post('allowance-types/{id}/status', [\App\Http\Controllers\Api\FinanceSettingsApiController::class, 'toggleAllowanceTypeStatus']);
 
-    // Pipeline APIs
-    Route::get('/manage-users/pipelines-json', [\App\Http\Controllers\Employee\EmployeeFrontendController::class, 'getPipelinesJson']);
-    Route::post('/manage-users/pipelines', [\App\Http\Controllers\Employee\EmployeeFrontendController::class, 'storePipeline']);
-    Route::put('/manage-users/pipelines/{id}', [\App\Http\Controllers\Employee\EmployeeFrontendController::class, 'updatePipeline']);
-    Route::delete('/manage-users/pipelines/{id}', [\App\Http\Controllers\Employee\EmployeeFrontendController::class, 'destroyPipeline']);
+        // Expense Categories
+        Route::get('expense-categories', [\App\Http\Controllers\Api\FinanceSettingsApiController::class, 'getExpenseCategories']);
+        Route::post('expense-categories', [\App\Http\Controllers\Api\FinanceSettingsApiController::class, 'storeExpenseCategory']);
+        Route::put('expense-categories/{id}', [\App\Http\Controllers\Api\FinanceSettingsApiController::class, 'updateExpenseCategory']);
+        Route::delete('expense-categories/{id}', [\App\Http\Controllers\Api\FinanceSettingsApiController::class, 'deleteExpenseCategory']);
+        Route::post('expense-categories/{id}/status', [\App\Http\Controllers\Api\FinanceSettingsApiController::class, 'toggleExpenseCategoryStatus']);
 
-    // Deal Settings APIs
-    Route::controller(\App\Http\Controllers\Employee\DealSettingsController::class)->prefix('manage-users/deal-settings')->group(function () {
-        Route::get('/json', 'getAllJson');
-        Route::post('/status', 'storeStatus');
-        Route::put('/status/{id}', 'updateStatus');
-        Route::delete('/status/{id}', 'destroyStatus');
-        Route::post('/period', 'storePeriod');
-        Route::put('/period/{id}', 'updatePeriod');
-        Route::delete('/period/{id}', 'destroyPeriod');
-        Route::post('/source', 'storeSource');
-        Route::put('/source/{id}', 'updateSource');
-        Route::delete('/source/{id}', 'destroySource');
-        Route::post('/priority', 'storePriority');
-        Route::put('/priority/{id}', 'updatePriority');
-        Route::delete('/priority/{id}', 'destroyPriority');
-        Route::post('/tag', 'storeTag');
-        Route::put('/tag/{id}', 'updateTag');
-        Route::delete('/tag/{id}', 'destroyTag');
+        // Approval Rules
+        Route::get('approval-rules', [\App\Http\Controllers\Api\FinanceSettingsApiController::class, 'getApprovalRules']);
+        Route::post('approval-rules', [\App\Http\Controllers\Api\FinanceSettingsApiController::class, 'storeApprovalRule']);
+        Route::put('approval-rules/{id}', [\App\Http\Controllers\Api\FinanceSettingsApiController::class, 'updateApprovalRule']);
+        Route::delete('approval-rules/{id}', [\App\Http\Controllers\Api\FinanceSettingsApiController::class, 'deleteApprovalRule']);
+        Route::post('approval-rules/{id}/status', [\App\Http\Controllers\Api\FinanceSettingsApiController::class, 'toggleApprovalRuleStatus']);
+    });
+
+    // Finance Expenses APIs
+    Route::prefix('finance/expenses')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\FinanceExpenseApiController::class, 'getExpenses']);
+        Route::post('/', [\App\Http\Controllers\Api\FinanceExpenseApiController::class, 'storeExpense']);
+        Route::put('/{id}', [\App\Http\Controllers\Api\FinanceExpenseApiController::class, 'updateExpense']);
+        Route::delete('/{id}', [\App\Http\Controllers\Api\FinanceExpenseApiController::class, 'deleteExpense']);
+    });
+
+    // Finance Approvals APIs
+    Route::prefix('finance/approvals')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\FinanceApprovalApiController::class, 'getApprovals']);
+        Route::post('/{id}', [\App\Http\Controllers\Api\FinanceApprovalApiController::class, 'storeApproval']);
+    });
+
+    // Finance Reimbursements APIs
+    Route::prefix('finance/reimbursements')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\FinanceReimbursementApiController::class, 'getReimbursements']);
+        Route::post('/', [\App\Http\Controllers\Api\FinanceReimbursementApiController::class, 'storeReimbursement']);
     });
 
 });

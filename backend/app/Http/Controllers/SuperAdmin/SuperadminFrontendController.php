@@ -920,7 +920,44 @@ class SuperadminFrontendController extends Controller
 
     public function company()
     {
-        return view('frontend.superadmin.company');
+        $total_companies = \App\Models\Box::count();
+        $active_companies = \App\Models\Box::where('status', 'enabled')->count();
+        $inactive_companies = \App\Models\Box::where('status', '!=', 'enabled')->orWhereNull('status')->count();
+        
+        return view('frontend.superadmin.company', compact('total_companies', 'active_companies', 'inactive_companies'));
+    }
+
+    public function impersonate(Request $request, $box_slug, $target_box_id)
+    {
+        $targetBox = Box::find($target_box_id);
+        if (!$targetBox || !$targetBox->superadmin_id) {
+            return redirect()->back()->with('error', 'Target company or its admin user not found.');
+        }
+
+        // Store original superadmin ID in session so we can return
+        session(['impersonated_by' => Auth::id()]);
+        
+        // Log in as the company's owner/admin
+        Auth::loginUsingId($targetBox->superadmin_id);
+
+        return redirect()->route('admin.dashboard', ['box_slug' => $targetBox->slug])->with('success', 'You are now impersonating ' . $targetBox->name);
+    }
+
+    public function leaveImpersonation(Request $request, $box_slug)
+    {
+        if (session()->has('impersonated_by')) {
+            $originalUserId = session('impersonated_by');
+            Auth::loginUsingId($originalUserId);
+            session()->forget('impersonated_by');
+            
+            // We need to figure out the superadmin's box slug. The current $box_slug might be the tenant's slug.
+            $superadminBox = Box::where('superadmin_id', $originalUserId)->first();
+            $redirectSlug = $superadminBox ? $superadminBox->slug : 'demobizzcom';
+
+            return redirect()->route('superadmin.company', ['box_slug' => $redirectSlug])->with('success', 'Returned to superadmin dashboard.');
+        }
+
+        return redirect()->back();
     }
 
     // public function organization_structure()
@@ -965,6 +1002,21 @@ class SuperadminFrontendController extends Controller
                     }
                 });
             }
+            
+            if ($request->has('start_date') && $request->has('end_date') && !empty($request->start_date) && !empty($request->end_date)) {
+                try {
+                    $start = \Carbon\Carbon::createFromFormat('d/m/Y', trim($request->start_date))->startOfDay();
+                    $end = \Carbon\Carbon::createFromFormat('d/m/Y', trim($request->end_date))->endOfDay();
+                    $query->whereBetween('created_at', [$start, $end]);
+                } catch (\Exception $e) {
+                    try {
+                        $start = \Carbon\Carbon::createFromFormat('m/d/Y', trim($request->start_date))->startOfDay();
+                        $end = \Carbon\Carbon::createFromFormat('m/d/Y', trim($request->end_date))->endOfDay();
+                        $query->whereBetween('created_at', [$start, $end]);
+                    } catch (\Exception $e) {
+                    }
+                }
+            }
 
             if ($request->has('sort_by')) {
                 switch ($request->sort_by) {
@@ -997,6 +1049,59 @@ class SuperadminFrontendController extends Controller
                 'success' => false,
                 'message' => 'Failed to fetch company data.',
                 'error'   => $th->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function updateCompany(Request $request, $box_slug, $id)
+    {
+        try {
+            $box = Box::findOrFail($id);
+            
+            $request->validate([
+                'name' => 'required|string|max:255',
+                'company_email' => 'nullable|email|max:255',
+                'domain' => 'nullable|string|max:255',
+                'phone' => 'nullable|string|max:50',
+                'address' => 'nullable|string|max:500',
+                'password' => 'nullable|min:6|confirmed',
+                'company_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+            ]);
+
+            $box->name = $request->name;
+            $box->company_email = $request->company_email;
+            $box->domain = $request->domain;
+            $box->phone = $request->phone;
+            $box->address = $request->address;
+
+            if ($request->hasFile('company_logo')) {
+                $file = $request->file('company_logo');
+                $filename = time() . '_' . $file->getClientOriginalName();
+                $path = $file->storeAs('company_logos', $filename, 'public');
+                $box->company_logo = $path;
+            }
+
+            $box->save();
+
+            // If password is provided, update the superadmin of the box
+            if ($request->filled('password') && $box->superadmin_id) {
+                $superadmin = \App\Models\User::find($box->superadmin_id);
+                if ($superadmin) {
+                    $superadmin->password = \Illuminate\Support\Facades\Hash::make($request->password);
+                    $superadmin->save();
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Company updated successfully.'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update company.',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -2628,13 +2733,14 @@ class SuperadminFrontendController extends Controller
 
         $successCount = 0;
         foreach ($boxes as $box) {
-            // Check if it has start_date and end_date
-            if (empty($box->start_date) || empty($box->end_date)) {
-                continue; // Skip boxes without valid dates
+            // If box has start_date and end_date, use them; otherwise, set start from today and end next month (1 month)
+            if (!empty($box->start_date) && !empty($box->end_date)) {
+                $startsAt = \Carbon\Carbon::parse($box->start_date)->startOfDay();
+                $endsAt = \Carbon\Carbon::parse($box->end_date)->endOfDay();
+            } else {
+                $startsAt = \Carbon\Carbon::now()->startOfDay();
+                $endsAt = \Carbon\Carbon::now()->addMonth()->endOfDay();
             }
-
-            $startsAt = \Carbon\Carbon::parse($box->start_date)->startOfDay();
-            $endsAt = \Carbon\Carbon::parse($box->end_date)->endOfDay();
             
             $userId = $box->superadmin_id ?? \Illuminate\Support\Facades\Auth::id();
             $boxUserId = \App\Models\BoxUser::where('box_id', $box->id)->where('user_id', $userId)->value('id');
@@ -2660,5 +2766,4 @@ class SuperadminFrontendController extends Controller
             'message' => "Offline plan bulk assigned successfully to {$successCount} companies!"
         ]);
     }
-
 }

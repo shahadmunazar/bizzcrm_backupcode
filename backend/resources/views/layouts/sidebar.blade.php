@@ -288,6 +288,13 @@
                         $hasAccountsRead = true;
                         $hasActivitiesRecordsRead = $hasActivitiesFeature;
                         $hasReportsRead = true;
+                        
+                        $hasFinanceDashboardRead = true;
+                        $hasFinanceSettingsRead = true;
+                        $hasFinanceExpensesRead = true;
+                        $hasFinanceApprovalsRead = true;
+                        $hasFinanceReimbursementsRead = true;
+                        $hasFinanceRead = true;
                     } else {
                         // For non-admin users, check actual permissions from database AND subscription feature
                         $hasAttendanceRead = PermissionHelper::hasModulePermission('attendance', 'read') && $hasAttendanceFeature;
@@ -305,6 +312,18 @@
                         $hasAccountsRead = PermissionHelper::hasModulePermission('accounts', 'read');
                         $hasActivitiesRecordsRead = PermissionHelper::hasModulePermission('activities_records', 'read') && $hasActivitiesFeature;
                         $hasReportsRead = PermissionHelper::hasModulePermission('reports', 'read');
+                        
+                        $hasFinanceDashboardRead = PermissionHelper::hasModulePermission('finance_dashboard', 'read');
+                        
+                        $hasAllowanceTypes = PermissionHelper::hasModulePermission('finance_settings_allowance_types', 'read');
+                        $hasExpenseCategories = PermissionHelper::hasModulePermission('finance_settings_expense_categories', 'read');
+                        $hasApprovalRules = PermissionHelper::hasModulePermission('finance_settings_approval_rules', 'read');
+                        $hasFinanceSettingsRead = $hasAllowanceTypes || $hasExpenseCategories || $hasApprovalRules;
+
+                        $hasFinanceExpensesRead = PermissionHelper::hasModulePermission('finance_expenses', 'read');
+                        $hasFinanceApprovalsRead = PermissionHelper::hasModulePermission('finance_approvals', 'read');
+                        $hasFinanceReimbursementsRead = PermissionHelper::hasModulePermission('finance_reimbursements', 'read');
+                        $hasFinanceRead = $hasFinanceDashboardRead || $hasFinanceSettingsRead || $hasFinanceExpensesRead || $hasFinanceApprovalsRead || $hasFinanceReimbursementsRead;
                     }
                 @endphp
                 @php
@@ -729,6 +748,12 @@
                                                     </a>
                                                 </li>
                                             @endif -->
+                                    <li>
+                                        <a href="{{ box_route('leads.user.dashboard') }}" data-route="leads.user.dashboard"
+                                            class="{{ request()->routeIs('leads.user.dashboard') ? 'active' : '' }}">
+                                            <span>User Leads Dashboard</span>
+                                        </a>
+                                    </li>
                                     @if ($isPrivilegedUser || PermissionHelper::canAccessRoute('leads.details'))
                                         <li>
                                             <a href="{{ box_route('leads.details') }}" data-route="leads.details"
@@ -1123,7 +1148,12 @@
                                                     <li><a href="{{ box_route('accounts.invoices', ['company_id' => $acCompany->id]) }}"
                                                             class="{{ request()->routeIs('accounts.invoices') && request('company_id') == $acCompany->id ? 'active' : '' }}">Invoices</a>
                                                     </li>
-                                                @endif                                    
+                                                @endif
+                                                @if ($isPrivilegedUser || App\Helpers\PermissionHelper::canAccessRoute('accounts.proforma_invoices'))
+                                                    <li><a href="{{ box_route('accounts.proforma_invoices', ['company_id' => $acCompany->id]) }}"
+                                                            class="{{ request()->routeIs('accounts.proforma_invoices') && request('company_id') == $acCompany->id ? 'active' : '' }}">Proforma Invoices</a>
+                                                    </li>
+                                                @endif
                                                 @if ($isPrivilegedUser || App\Helpers\PermissionHelper::canAccessRoute('accounts.invoice_grid'))
                                                     <li><a href="{{ box_route('accounts.invoice_grid', ['company_id' => $acCompany->id]) }}"
                                                             class="{{ request()->routeIs('accounts.invoice_grid') && request('company_id') == $acCompany->id ? 'active' : '' }}">Invoice
@@ -2006,46 +2036,42 @@
                                 <li><a href="{{ box_route('fieldstracking.tour-bulk-uploading') }}" class="{{ request()->routeIs('fieldstracking.tour-bulk-uploading') ? 'active' : '' }}"><i class="ti ti-flag"></i><span>Tour bulk upload</span></a></li>
                             </ul>
                         </li>
-                        <li class="submenu">
-                            <a href="javascript:void(0)" class="{{ request()->routeIs('fieldstracking.my-target') || request()->routeIs('fieldstracking.target-template') || request()->routeIs('fieldstracking.team-targets') ? 'subdrop active' : '' }}">
-                                <i class="ti ti-target"></i><span>Target</span>
-                                <span class="menu-arrow"></span>
-                            </a>
-                            <ul>
-                                <li><a href="{{ box_route('fieldstracking.my-target') }}" class="{{ request()->routeIs('fieldstracking.my-target') ? 'active' : '' }}"><i class="ti ti-users"></i><span>My Target</span></a></li>
-                                <li><a href="{{ box_route('fieldstracking.target-template') }}" class="{{ request()->routeIs('fieldstracking.target-template') ? 'active' : '' }}"><i class="ti ti-triangle"></i><span>Target Template</span></a></li>
-                                <li><a href="{{ box_route('fieldstracking.team-targets') }}" class="{{ request()->routeIs('fieldstracking.team-targets') ? 'active' : '' }}"><i class="ti ti-flag"></i><span>Team Targets</span></a></li>
-                            </ul>
-                        </li>
+                        @if ($hasFinanceRead)
                         <li class="submenu">
                             <a href="javascript:void(0)" class="{{ request()->routeIs('finance.*') ? 'subdrop active' : '' }}">
                                 <i class="ti ti-wallet"></i><span>Finance & Expenses</span>
                                 <span class="menu-arrow"></span>
                             </a>
                             <ul>
+                                @if ($hasFinanceDashboardRead)
                                 <li>
                                     <a href="{{ route('finance.dashboard', ['box_slug' => session('box_slug', request()->route('box_slug'))]) }}" class="{{ request()->routeIs('finance.dashboard') ? 'active' : '' }}">
                                         <i class="ti ti-layout-dashboard"></i><span>Dashboard</span>
                                     </a>
                                 </li>
-                                @if ($user->hasRole(['admin', 'superadmin']))
+                                @endif
+                                @if ($hasFinanceSettingsRead)
                                 <li>
                                     <a href="{{ route('finance.settings.index', ['box_slug' => session('box_slug', request()->route('box_slug'))]) }}" class="{{ request()->routeIs('finance.settings.*') ? 'active' : '' }}">
                                         <i class="ti ti-settings"></i><span>Settings</span>
                                     </a>
                                 </li>
                                 @endif
+                                @if ($hasFinanceExpensesRead)
                                 <li>
                                     <a href="{{ route('finance.expenses.index', ['box_slug' => session('box_slug', request()->route('box_slug'))]) }}" class="{{ request()->routeIs('finance.expenses.*') ? 'active' : '' }}">
                                         <i class="ti ti-receipt"></i><span>My Expenses</span>
                                     </a>
                                 </li>
-                                @if ($user->hasRole(['admin', 'manager', 'superadmin']))
+                                @endif
+                                @if ($hasFinanceApprovalsRead)
                                 <li>
                                     <a href="{{ route('finance.approvals.index', ['box_slug' => session('box_slug', request()->route('box_slug'))]) }}" class="{{ request()->routeIs('finance.approvals.*') ? 'active' : '' }}">
                                         <i class="ti ti-check"></i><span>Approvals</span>
                                     </a>
                                 </li>
+                                @endif
+                                @if ($hasFinanceReimbursementsRead)
                                 <li>
                                     <a href="{{ route('finance.reimbursements.index', ['box_slug' => session('box_slug', request()->route('box_slug'))]) }}" class="{{ request()->routeIs('finance.reimbursements.*') ? 'active' : '' }}">
                                         <i class="ti ti-cash"></i><span>Reimbursements</span>
@@ -2054,6 +2080,7 @@
                                 @endif
                             </ul>
                         </li>
+                        @endif
                     </ul>
                 </li>
 
@@ -2160,6 +2187,19 @@
                                     @if ($isPrivilegedUser || PermissionHelper::canAccessRoute('manage_users.deal_settings.index'))
                                         <li><a href="{{ box_route('manage_users.deal_settings.index') }}" class="{{ request()->routeIs('manage_users.deal_settings.*') ? 'active' : '' }}">Deal Settings</a></li>
                                     @endif
+                                </ul>
+                            </li>
+                            <li class="submenu">
+                                <a href="javascript:void(0)" class="{{ request()->routeIs('fieldstracking.my-target') || request()->routeIs('fieldstracking.target-template') || request()->routeIs('fieldstracking.team-targets') || request()->routeIs('fieldstracking.employee-dashboard') || request()->routeIs('fieldstracking.performance-dashboard') ? 'subdrop active' : '' }}">
+                                    <i class="ti ti-target"></i><span>Target</span>
+                                    <span class="menu-arrow"></span>
+                                </a>
+                                <ul>
+                                    <li><a href="{{ box_route('fieldstracking.my-target') }}" class="{{ request()->routeIs('fieldstracking.my-target') ? 'active' : '' }}"><i class="ti ti-users"></i><span>My Target</span></a></li>
+                                    <li><a href="{{ box_route('fieldstracking.target-template') }}" class="{{ request()->routeIs('fieldstracking.target-template') ? 'active' : '' }}"><i class="ti ti-triangle"></i><span>Target Template</span></a></li>
+                                    <li><a href="{{ box_route('fieldstracking.team-targets') }}" class="{{ request()->routeIs('fieldstracking.team-targets') ? 'active' : '' }}"><i class="ti ti-flag"></i><span>Team Targets</span></a></li>
+                                    <li><a href="{{ box_route('fieldstracking.employee-dashboard') }}" class="{{ request()->routeIs('fieldstracking.employee-dashboard') ? 'active' : '' }}"><i class="ti ti-users"></i><span>Employee Dashboard</span></a></li>
+                                    <li><a href="{{ box_route('fieldstracking.performance-dashboard') }}" class="{{ request()->routeIs('fieldstracking.performance-dashboard') ? 'active' : '' }}"><i class="ti ti-chart-bar"></i><span>Performance Dashboard</span></a></li>
                                 </ul>
                             </li>
                         </ul>

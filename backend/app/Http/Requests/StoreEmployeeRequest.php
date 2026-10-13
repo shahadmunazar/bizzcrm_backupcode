@@ -44,7 +44,7 @@ class StoreEmployeeRequest extends FormRequest
         return [
             'name'                   => 'required|string|max:255',
             'last_name'              => 'nullable|string|max:255',
-            'employee_id'            => 'nullable|string|max:100',
+            'employee_id'            => 'required|string|max:100',
             'phone'                  => 'required|string|max:20',
             'email'                  => 'required|email|max:255',
             'joining_date'           => 'required|date',
@@ -61,6 +61,7 @@ class StoreEmployeeRequest extends FormRequest
             'day_start_time'         => 'nullable',
             'day_end_time'           => 'nullable',
             'allowed_ips'            => 'nullable|array',
+            'allowed_ips.*'          => 'nullable|ip',
             'permissions'            => 'nullable|array',
             'permissions.*'          => 'integer|exists:permissions,id',
         ];

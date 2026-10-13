@@ -420,7 +420,7 @@
 									<select class="multiple-img" multiple="multiple" name="responsible_persons[]">
 										@foreach($boxUsers as $bUser)
 											<option data-image="{{ $bUser->profile_image_path ? asset($bUser->profile_image_path) : asset('assets/img/profiles/avatar-19.jpg') }}" value="{{ $bUser->id }}">
-												{{ trim($bUser->first_name . ' ' . $bUser->last_name) }}
+												{{ $bUser->user->name ?? trim($bUser->first_name . ' ' . $bUser->last_name) }}
 											</option>
 										@endforeach
 									</select>
@@ -521,7 +521,7 @@
 									<select class="multiple-img" multiple="multiple" name="responsible_persons[]" id="edit_responsible_persons">
 										@foreach($boxUsers as $bUser)
 											<option data-image="{{ $bUser->profile_image_path ? asset($bUser->profile_image_path) : asset('assets/img/profiles/avatar-19.jpg') }}" value="{{ $bUser->id }}">
-												{{ trim($bUser->first_name . ' ' . $bUser->last_name) }}
+												{{ $bUser->user->name ?? trim($bUser->first_name . ' ' . $bUser->last_name) }}
 											</option>
 										@endforeach
 									</select>
@@ -686,6 +686,35 @@
 var currentSort = '';
 var currentDateRange = '';
 
+$(document).ready(function() {
+    // Custom Accordion Logic to bypass Bootstrap completely
+    $(document).on('click', '.custom-accordion-toggle', function(e) {
+        e.preventDefault();
+        var targetId = $(this).attr('data-target-id');
+        var $content = $('#' + targetId);
+        var $this = $(this);
+        
+        // Close others
+        $('#todo-groups-container .tasks-activity').not($content).slideUp(300, function() {
+            $(this).removeClass('show').addClass('closed-custom');
+        });
+        $('#todo-groups-container .custom-accordion-toggle').not($this).addClass('collapsed').attr('aria-expanded', 'false');
+
+        // Toggle current
+        if ($content.is(':visible')) {
+            $content.slideUp(300, function() {
+                $content.removeClass('show').addClass('closed-custom');
+            });
+            $this.addClass('collapsed').attr('aria-expanded', 'false');
+        } else {
+            $content.slideDown(300, function() {
+                $content.addClass('show').removeClass('closed-custom');
+            });
+            $this.removeClass('collapsed').attr('aria-expanded', 'true');
+        }
+    });
+});
+
 function fetchTodos() {
     $.ajax({
         url: "{{ box_route('manage_users.todo') }}",
@@ -760,21 +789,43 @@ function fetchTodos() {
                         return b.key.localeCompare(a.key); // Descending (latest first)
                     });
 
+                    // Capture currently open groups before rewriting HTML
+                    var openGroups = [];
+                    var isFirstRender = $('#todo-groups-container .tasks-activity').length === 0;
+                    $('#todo-groups-container .tasks-activity.show').each(function() {
+                        openGroups.push($(this).attr('id'));
+                    });
+
                     $.each(groupedArray, function(gIndex, group) {
                         var groupId = 'task-group-' + gIndex;
+                        
+                        var isOpen = false;
+                        if (isFirstRender) {
+                            isOpen = (gIndex === 0);
+                        } else {
+                            isOpen = openGroups.includes(groupId);
+                        }
+                        
+                        var displayStyle = isOpen ? 'display: block;' : 'display: none;';
+                        var accordionClass = isOpen ? '' : 'collapsed';
+                        var ariaExpanded = isOpen ? 'true' : 'false';
+                        var stateClass = isOpen ? 'show' : 'closed-custom';
+
                         html += '<div class="task-wrapper">';
-                        html += '<a href="#" class="task-accordion" data-bs-toggle="collapse" data-bs-target="#' + groupId + '">';
-                        html += '<h4>' + group.title + ' <span>' + group.items.length + '</span></h4>';
+                        html += '<a href="javascript:void(0);" class="task-accordion custom-accordion-toggle ' + accordionClass + '" data-target-id="' + groupId + '" aria-expanded="' + ariaExpanded + '">';
+                        html += '<h4>' + group.title + ' <span style="pointer-events: none;">' + group.items.length + '</span></h4>';
                         html += '</a>';
-                        html += '<div class="tasks-activity tasks collapse show" id="' + groupId + '">';
+                        html += '<div class="tasks-activity tasks ' + stateClass + '" id="' + groupId + '" style="padding: 1px 0; ' + displayStyle + '">';
                         html += '<ul>';
 
                         $.each(group.items, function(index, todo) {
-                            var escapeHtml = function(text) {
-                                return $('<div>').text(text).html();
-                            };
-                            
-                            var safeTitle = todo.title ? escapeHtml(todo.title) : '';
+                            try {
+                                var escapeHtml = function(text) {
+                                    if (text === null || text === undefined) return '';
+                                    return $('<div>').text(text).html();
+                                };
+                                
+                                var safeTitle = todo.title ? escapeHtml(todo.title) : 'Untitled';
                             var safeCategory = todo.category ? escapeHtml(todo.category) : '';
                             var safeStatus = todo.status ? escapeHtml(todo.status) : 'Pending';
                             
@@ -848,7 +899,12 @@ function fetchTodos() {
                             var escapedTodo = escapeHtml(JSON.stringify(todo));
                             html += '<div class="dropdown-menu dropdown-menu-right"><a class="dropdown-item edit-todo-btn" href="#" data-todo=\'' + JSON.stringify(todo).replace(/'/g, "&apos;") + '\' data-bs-toggle="offcanvas" data-bs-target="#offcanvas_edit"><i class="ti ti-edit text-blue"></i> Edit</a><a class="dropdown-item delete-todo-btn" href="#" data-id="' + todo.id + '" data-bs-toggle="modal" data-bs-target="#delete_activity"><i class="ti ti-trash text-danger"></i> Delete</a></div>';
                             html += '</div></li></ul></div>';
+                            
                             html += '</li>';
+                            } catch (e) {
+                                console.error("Error generating task HTML:", e, todo);
+                                html += '<li class="task-wrap pending"><div class="task-info"><p class="text-danger">Error rendering this task: ' + e.message + '</p></div></li>';
+                            }
                         });
 
                         html += '</ul></div></div>';

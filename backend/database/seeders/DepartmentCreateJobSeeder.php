@@ -15,8 +15,8 @@ class DepartmentCreateJobSeeder extends Seeder
         $boxes = \App\Models\Box::all();
         
         foreach ($boxes as $box) {
-            dispatch(new \App\Jobs\DepartmentCreateJob($box->id));
-            $this->command->info('Dispatched DepartmentCreateJob for Box ID: ' . $box->id);
+            (new \App\Jobs\DepartmentCreateJob($box->id))->handle();
+            $this->command->info('Created departments and teams for Box ID: ' . $box->id);
         }
     }
 }

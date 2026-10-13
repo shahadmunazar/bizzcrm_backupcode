@@ -2,7 +2,7 @@
 namespace App\Http\Controllers\Auth;
 use App\Helpers\LeadFieldsHelper;
 use App\Http\Controllers\Controller;
-use App\Jobs\{DepartmentCreateJob, MarkAllUsersAbsentJob, SendEmailVerifiedJob, SendOtpJob, SendPasswordResetSuccessJob, SendRegistrationVerifyJob, SendResetPasswordEmailJob};
+use App\Jobs\{CreateStandardShiftJob, DepartmentCreateJob, MarkAllUsersAbsentJob, SendEmailVerifiedJob, SendOtpJob, SendPasswordResetSuccessJob, SendRegistrationVerifyJob, SendResetPasswordEmailJob};
 use App\Models\{Box, BoxUser, City, Country, EmployeeType, LeadSubStatus, State, User, WorkModeSetting, DealStatus, DealPeriod, DealSource, DealPriority, DealTag, DealStage, Deal};
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -703,6 +703,9 @@ class AuthController extends Controller
             dispatch(new DepartmentCreateJob(
                 $box->id,
             ));
+            dispatch(new CreateStandardShiftJob(
+                $box->id,
+            ));
             $companyPrefix = strtoupper(Str::substr(Str::slug($request->company_name), 0, 2));
             $employeeId = $companyPrefix . '-01';
             // Default Deal Statuses
@@ -733,6 +736,12 @@ class AuthController extends Controller
             $defaultTags = ['VIP', 'New Customer', 'Follow-Up Needed'];
             foreach ($defaultTags as $tag) {
                 DealTag::create(['box_id' => $box->id, 'name' => $tag, 'status' => 'active', 'created_by' => $user->id]);
+            }
+
+            // Default Payment Modes
+            $defaultPaymentModes = ['Cash', 'Credit Card', 'Paypal', 'Debit Card', 'Cheque', 'Bank Transfer'];
+            foreach ($defaultPaymentModes as $mode) {
+                \App\Models\PaymentMode::create(['box_id' => $box->id, 'name' => $mode, 'status' => 'Enabled', 'created_by' => $user->id]);
             }
 
             $boxUser = BoxUser::create([
@@ -1304,6 +1313,22 @@ class AuthController extends Controller
             //     Auth::logoutOtherDevices($request->password);
             // }
 
+            // If the user is currently impersonating another account, clicking logout 
+            // should NOT destroy the entire session (which logs out the original superadmin too).
+            // Instead, just 'leave impersonation' and redirect to superadmin company list.
+            if ($request->session()->has('impersonated_by')) {
+                $originalUserId = $request->session()->get('impersonated_by');
+                Auth::loginUsingId($originalUserId);
+                $request->session()->forget('impersonated_by');
+                
+                // Get the superadmin box slug
+                $superadminBox = \App\Models\Box::where('superadmin_id', $originalUserId)->first();
+                $redirectSlug = $superadminBox ? $superadminBox->slug : 'demobizzcom';
+
+                return redirect()->route('superadmin.company', ['box_slug' => $redirectSlug])
+                               ->with('success', 'You have left the impersonated session.');
+            }
+
             // Signal mobile app for soft logout
             if ($user = Auth::user()) {
                 \Illuminate\Support\Facades\Cache::put('web_logout_' . $user->id, true, now()->addMinutes(60));
@@ -1318,14 +1343,6 @@ class AuthController extends Controller
 
             // Clear all session data
             $request->session()->flush();
-
-            // Forget all cookies
-            $request->session()->forget('box_slug');
-            $request->session()->forget('user_id');
-            $request->session()->forget('permissions');
-
-            // Regenerate CSRF token
-            $request->session()->regenerate();
 
             // Redirect to login with success message
             return redirect()->route('login')->with('success', 'You have been logged out successfully.');

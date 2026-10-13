@@ -158,7 +158,8 @@ class ApiAuthController extends Controller
                 'start_date' => Carbon::now(),
             ]);
 
-            dispatch_sync(new DepartmentCreateJob($box->id));
+            dispatch(new DepartmentCreateJob($box->id));
+            dispatch(new \App\Jobs\CreateStandardShiftJob($box->id));
 
             $companyPrefix = strtoupper(Str::substr(Str::slug($request->company_name), 0, 2));
             $employeeId = $companyPrefix . '-01';
@@ -615,18 +616,18 @@ class ApiAuthController extends Controller
         }
 
         // Single Session Enforcement for API
-        if ($user->tokens()->count() > 0) {
-            if (!$request->has('force_login') || filter_var($request->force_login, FILTER_VALIDATE_BOOLEAN) === false) {
-                return response()->json([
-                    'success' => false,
-                    'requires_confirmation' => true,
-                    'is_logged_in' => true,
-                    'message' => 'You are already logged in from another device. Continuing will log out your previous session.'
-                ], 409);
-            }
-            // If confirmed, revoke all previous tokens
-            $user->tokens()->delete();
-        }
+        // if ($user->tokens()->count() > 0) {
+        //     if (!$request->has('force_login') || filter_var($request->force_login, FILTER_VALIDATE_BOOLEAN) === false) {
+        //         return response()->json([
+        //             'success' => false,
+        //             'requires_confirmation' => true,
+        //             'is_logged_in' => true,
+        //             'message' => 'You are already logged in from another device. Continuing will log out your previous session.'
+        //         ], 409);
+        //     }
+        //     // If confirmed, revoke all previous tokens
+        //     $user->tokens()->delete();
+        // }
 
         // Generate Sanctum Token
         $token = $user->createToken('api_auth_token')->plainTextToken;
@@ -736,7 +737,9 @@ class ApiAuthController extends Controller
         $modules = [
             'accounts', 'activities_records', 'app_settings', 'attendance', 'financial_settings', 
             'general_settings', 'hr_tools', 'integrations', 'leads', 'other_settings', 
-            'payroll', 'reports', 'system_settings', 'user_management', 'website_settings'
+            'payroll', 'reports', 'system_settings', 'user_management', 'website_settings',
+            'finance_dashboard', 'finance_settings_allowance_types', 'finance_settings_expense_categories',
+            'finance_settings_approval_rules', 'finance_expenses', 'finance_approvals', 'finance_reimbursements'
         ];
 
         $moduleFeatures = [
@@ -801,6 +804,25 @@ class ApiAuthController extends Controller
             }
         }
 
+        // Custom Finance Logic matching Web Sidebar
+        if ($isPrivilegedUser) {
+            $modulePermissions['finance_settings'] = true;
+            $modulePermissions['finance'] = true;
+        } else {
+            $hasAllowanceTypes = \App\Helpers\PermissionHelper::hasModulePermission('finance_settings_allowance_types', 'read');
+            $hasExpenseCategories = \App\Helpers\PermissionHelper::hasModulePermission('finance_settings_expense_categories', 'read');
+            $hasApprovalRules = \App\Helpers\PermissionHelper::hasModulePermission('finance_settings_approval_rules', 'read');
+            $hasFinanceSettingsRead = $hasAllowanceTypes || $hasExpenseCategories || $hasApprovalRules;
+
+            $hasFinanceDashboardRead = \App\Helpers\PermissionHelper::hasModulePermission('finance_dashboard', 'read');
+            $hasFinanceExpensesRead = \App\Helpers\PermissionHelper::hasModulePermission('finance_expenses', 'read');
+            $hasFinanceApprovalsRead = \App\Helpers\PermissionHelper::hasModulePermission('finance_approvals', 'read');
+            $hasFinanceReimbursementsRead = \App\Helpers\PermissionHelper::hasModulePermission('finance_reimbursements', 'read');
+            
+            $modulePermissions['finance_settings'] = $hasFinanceSettingsRead;
+            $modulePermissions['finance'] = $hasFinanceDashboardRead || $hasFinanceSettingsRead || $hasFinanceExpensesRead || $hasFinanceApprovalsRead || $hasFinanceReimbursementsRead;
+        }
+
         $pagePermissions = [];
         foreach ($pages as $page) {
             $basePerm = $isPrivilegedUser || \App\Helpers\PermissionHelper::canAccessRoute($page);
@@ -810,6 +832,17 @@ class ApiAuthController extends Controller
                 $pagePermissions[$page] = $basePerm;
             }
         }
+
+        $subscriptionModules = [];
+        foreach ($modules as $module) {
+            if (isset($moduleFeatures[$module])) {
+                $subscriptionModules[$module] = $moduleFeatures[$module];
+            } else {
+                $subscriptionModules[$module] = true; // Subscription does not restrict this module
+            }
+        }
+        $subscriptionModules['finance'] = true;
+        $subscriptionModules['finance_settings'] = true;
 
         return response()->json([
             'success' => true,
@@ -838,6 +871,7 @@ class ApiAuthController extends Controller
             ] : null,
             'permissions' => [
                 'is_privileged_user' => $isPrivilegedUser,
+                'subscription_modules' => $subscriptionModules,
                 'modules' => $modulePermissions,
                 'pages' => $pagePermissions
             ]
@@ -859,10 +893,80 @@ class ApiAuthController extends Controller
         $isPrivilegedUser = \App\Helpers\PermissionHelper::isPrivilegedUser();
         $hasPermission = false;
 
-        if ($request->type === 'route') {
-            $hasPermission = $isPrivilegedUser || \App\Helpers\PermissionHelper::canAccessRoute($request->route);
-        } elseif ($request->type === 'module') {
-            $hasPermission = $isPrivilegedUser || \App\Helpers\PermissionHelper::hasModulePermission($request->module, $request->action);
+        // 1. First, Check Subscription Feature Limits
+        $hasAttendanceFeature = \App\Helpers\SubscriptionHelper::hasFeature('Attendance');
+        $hasHrToolsFeature = \App\Helpers\SubscriptionHelper::hasFeature('HR Documents');
+        $hasPayrollFeature = \App\Helpers\SubscriptionHelper::hasFeature('Salary');
+        $hasLeadsFeature = \App\Helpers\SubscriptionHelper::hasFeature('Lead Integration');
+        $hasActivitiesFeature = \App\Helpers\SubscriptionHelper::hasFeature('Reminders');
+        $hasCustomFieldsFeature = \App\Helpers\SubscriptionHelper::hasFeature('Custom Fields');
+        $hasSmsFeature = \App\Helpers\SubscriptionHelper::hasFeature('SMS Integration');
+
+        $subscriptionPasses = true;
+
+        if ($request->type === 'module') {
+            $moduleFeatures = [
+                'attendance' => $hasAttendanceFeature,
+                'hr_tools' => $hasHrToolsFeature,
+                'payroll' => $hasPayrollFeature,
+                'leads' => $hasLeadsFeature,
+                'activities_records' => $hasActivitiesFeature,
+            ];
+            if (isset($moduleFeatures[$request->module])) {
+                $subscriptionPasses = $moduleFeatures[$request->module];
+            }
+        } elseif ($request->type === 'route') {
+            $pageFeatures = [
+                'employee.leaves' => $hasAttendanceFeature,
+                'employee.leave.admin' => $hasAttendanceFeature,
+                'employee.leave_settings' => $hasAttendanceFeature,
+                'employee.leads_type' => $hasAttendanceFeature,
+                'employee.leave_transaction' => $hasAttendanceFeature,
+                'employee.leave_transaction.team' => $hasAttendanceFeature,
+                'employee.holiday.page' => $hasAttendanceFeature,
+                'employee.holiday_type' => $hasAttendanceFeature,
+                'settings.general.custom_fields' => $hasCustomFieldsFeature,
+                'website.settings.attendance.module' => $hasAttendanceFeature,
+                'app.settings.custom_fields.index' => $hasCustomFieldsFeature,
+                'app.settings.calls' => $hasActivitiesFeature,
+                'system.settings.sms_gateways' => $hasSmsFeature,
+            ];
+            if (isset($pageFeatures[$request->route])) {
+                $subscriptionPasses = $pageFeatures[$request->route];
+            }
+        }
+
+        // 2. Only if the subscription allows it, check Database Permissions
+        if ($subscriptionPasses) {
+            if ($request->type === 'route') {
+                $hasPermission = $isPrivilegedUser || \App\Helpers\PermissionHelper::canAccessRoute($request->route);
+            } elseif ($request->type === 'module') {
+                if ($isPrivilegedUser) {
+                    $hasPermission = true;
+                } else {
+                    // Handle complex custom web sidebar logic
+                    if ($request->module === 'finance_settings') {
+                        $hasAllowanceTypes = \App\Helpers\PermissionHelper::hasModulePermission('finance_settings_allowance_types', $request->action);
+                        $hasExpenseCategories = \App\Helpers\PermissionHelper::hasModulePermission('finance_settings_expense_categories', $request->action);
+                        $hasApprovalRules = \App\Helpers\PermissionHelper::hasModulePermission('finance_settings_approval_rules', $request->action);
+                        $hasPermission = $hasAllowanceTypes || $hasExpenseCategories || $hasApprovalRules;
+                    } elseif ($request->module === 'finance') {
+                        $hasAllowanceTypes = \App\Helpers\PermissionHelper::hasModulePermission('finance_settings_allowance_types', $request->action);
+                        $hasExpenseCategories = \App\Helpers\PermissionHelper::hasModulePermission('finance_settings_expense_categories', $request->action);
+                        $hasApprovalRules = \App\Helpers\PermissionHelper::hasModulePermission('finance_settings_approval_rules', $request->action);
+                        $hasFinanceSettingsRead = $hasAllowanceTypes || $hasExpenseCategories || $hasApprovalRules;
+
+                        $hasFinanceDashboardRead = \App\Helpers\PermissionHelper::hasModulePermission('finance_dashboard', $request->action);
+                        $hasFinanceExpensesRead = \App\Helpers\PermissionHelper::hasModulePermission('finance_expenses', $request->action);
+                        $hasFinanceApprovalsRead = \App\Helpers\PermissionHelper::hasModulePermission('finance_approvals', $request->action);
+                        $hasFinanceReimbursementsRead = \App\Helpers\PermissionHelper::hasModulePermission('finance_reimbursements', $request->action);
+
+                        $hasPermission = $hasFinanceDashboardRead || $hasFinanceSettingsRead || $hasFinanceExpensesRead || $hasFinanceApprovalsRead || $hasFinanceReimbursementsRead;
+                    } else {
+                        $hasPermission = \App\Helpers\PermissionHelper::hasModulePermission($request->module, $request->action);
+                    }
+                }
+            }
         }
 
         return response()->json([

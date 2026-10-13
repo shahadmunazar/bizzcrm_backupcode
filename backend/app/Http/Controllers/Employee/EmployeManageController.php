@@ -274,8 +274,8 @@ class EmployeManageController extends BaseController
         try {
             $user_id = Auth::id();
 
-            $boxUser = \App\Models\BoxUser::where('user_id', $user_id)->first();
-            $box = $boxUser ? Box::find($boxUser->box_id) : Box::where('superadmin_id', $user_id)->first(['id', 'dynamic_employee_id', 'slug', 'name']);
+            $box = Box::where('superadmin_id', $user_id)
+                ->first(['id', 'dynamic_employee_id']);
 
             if (! $box) {
                 return response()->json([
@@ -288,32 +288,24 @@ class EmployeManageController extends BaseController
 
             // If dynamic_employee_id is disabled
             if ($box->dynamic_employee_id == 0) {
-                // Generate prefix from box name
-                $words = preg_split('/[\s\-]+/', $box->name ?? $box->slug);
-                $prefix = '';
-                foreach ($words as $word) {
-                    if (!empty($word)) {
-                        $prefix .= strtoupper(substr($word, 0, 1));
-                    }
-                }
-                if (empty($prefix)) {
-                    $prefix = 'EMP';
-                }
-
-                $latestUser = BoxUser::where('box_id', $box->id)
-                    ->where('employee_id', 'like', "{$prefix}-%")
+                $latestUser = BoxUser::whereHas('box', function ($q) use ($user_id) {
+                    $q->where('superadmin_id', $user_id);
+                })
+                    ->whereNotNull('employee_id')
                     ->orderByDesc('id')
                     ->first();
 
-                if ($latestUser && preg_match("/{$prefix}-(\d+)/", $latestUser->employee_id, $matches)) {
-                    $number     = (int) $matches[1] + 1;
+                if ($latestUser && preg_match("/([A-Z]+)-(\d+)/", $latestUser->employee_id, $matches)) {
+                    $prefix     = $matches[1];
+                    $number     = (int) $matches[2] + 1;
+                    $employeeId = sprintf("%s-%02d", $prefix, $number);
                     $fromType   = $latestUser->type ?? null;
                 } else {
+                    $prefix     = 'EMP';
                     $number     = 1;
+                    $employeeId = sprintf("%s-%02d", $prefix, $number);
                     $fromType   = null;
                 }
-
-                $employeeId = sprintf("%s-%02d", $prefix, $number);
 
                 return response()->json([
                     'status'          => true,
@@ -323,16 +315,8 @@ class EmployeManageController extends BaseController
                 ]);
             }
 
-            $words = preg_split('/[\s\-]+/', $box->dynamic_employee_id);
-            $prefix = '';
-            foreach ($words as $word) {
-                if (!empty($word)) {
-                    $prefix .= strtoupper(substr($word, 0, 1));
-                }
-            }
-            if (empty($prefix)) {
-                $prefix = 'EMP';
-            }
+            // Dynamic prefix is enabled: use dynamic_employee_id as base
+            $prefix = strtoupper(substr(Str::slug($box->dynamic_employee_id), 0, 2));
 
             $latestUser = BoxUser::where('box_id', $box->id)
                 ->where('employee_id', 'like', "{$prefix}-%")
@@ -443,28 +427,10 @@ class EmployeManageController extends BaseController
             $boxName              = $boxUser->box->name;
             $dynamicPrefixSetting = $boxUser->box->dynamic_employee_id;
             $requestedEmployeeId  = $request->employee_id;
-            $baseString = $dynamicPrefixSetting == 0 ? $boxName : $dynamicPrefixSetting;
-            $words = preg_split('/[\s\-]+/', $baseString);
-            $expectedPrefix = '';
-            foreach ($words as $word) {
-                if (!empty($word)) {
-                    $expectedPrefix .= strtoupper(substr($word, 0, 1));
-                }
-            }
-            if (empty($expectedPrefix)) {
-                $expectedPrefix = 'EMP';
-            }
-            if (empty($requestedEmployeeId)) {
-                $lastEmployee = BoxUser::where('box_id', $box_id)
-                    ->where('employee_id', 'like', "{$expectedPrefix}-%")
-                    ->orderByDesc('id')
-                    ->first();
-                $lastId     = $lastEmployee ? $lastEmployee->employee_id : $expectedPrefix . '-01';
-                $nextNumber = ($lastEmployee && preg_match("/{$expectedPrefix}-(\d+)/", $lastId, $matches))
-                    ? str_pad((int) $matches[1] + 1, 2, '0', STR_PAD_LEFT)
-                    : '01';
-                $requestedEmployeeId = "{$expectedPrefix}-{$nextNumber}";
-            } else if (! Str::startsWith($requestedEmployeeId, $expectedPrefix . '-')) {
+            $expectedPrefix       = strtoupper(Str::substr(Str::slug(
+                $dynamicPrefixSetting == 0 ? $boxName : $dynamicPrefixSetting
+            ), 0, 2));
+            if (! Str::startsWith($requestedEmployeeId, $expectedPrefix . '-')) {
                 return response()->json([
                     'error' => "Invalid prefix. Expected prefix is `{$expectedPrefix}`. Your employee ID should start with: {$expectedPrefix}-",
                 ], 422);
@@ -599,12 +565,12 @@ class EmployeManageController extends BaseController
                 'profile_image'         => $imageName,
                 'status'                => 'Disabled',
                 'profile_image_path'    => $imagePath,
-                'user_box_timing'       => $request->boolean('user_box_timing') ? '1' : '0',
+                'user_box_timing'       => $request->has('user_box_timing') ? '1' : '0',
                 'day_start_time'        => $request->day_start_time,
                 'day_end_time'          => $request->day_end_time,
                 'working_days'          => $request->has('working_days') ? $request->working_days : null,
-                'exlude_ip_restriction' => $request->boolean('exlude_ip_restriction') ? '1' : '0',
-                'exclude_round_robin'   => $request->boolean('exclude_round_robin') ? '1' : '0',
+                'exlude_ip_restriction' => $request->has('exlude_ip_restriction') ? '1' : '0',
+                'exclude_round_robin'   => $request->has('exclude_round_robin') ? '1' : '0',
                 'allowed_ips'           => $request->has('allowed_ips') ? $request->allowed_ips : null,
                 'has_whatsapp_access'   => $hasWhatsappAccess,
             ]);
@@ -882,10 +848,7 @@ class EmployeManageController extends BaseController
                 ]);
             }
 
-            $types = EmployeeType::where(function($q) use ($boxUser) {
-                    $q->where('box_id', $boxUser->box_id)
-                      ->orWhereNull('box_id');
-                })
+            $types = EmployeeType::where('box_id', $boxUser->box_id)
                 ->where('status', 'active')
                 ->select('id', 'name')
                 ->get();
@@ -1157,6 +1120,7 @@ class EmployeManageController extends BaseController
             }
 
             $excludeId = $request->get('exclude_id', null); // Optional: exclude specific user ID
+            $includeId = $request->get('include_id', null); // Optional: include specific user ID
             $teamOnly  = $request->get('team_only', false); // Optional: filter by team subordinates
             $superiorToDesignationId = $request->get('superior_to_designation');
 
@@ -1182,35 +1146,13 @@ class EmployeManageController extends BaseController
                     return $q->where('id', '!=', $excludeId);
                 });
 
-            // Handle Hierarchy Filtering (Server-Side)
+            // Hierarchy Filtering (Server-Side) is removed here because we want to return ALL 
+            // eligible users to the frontend. The frontend's renderReportingManagerOptions 
+            // function will automatically sort and group them into "Direct Hierarchy" 
+            // (primary recommendations) and "Other Employees", allowing the user to select 
+            // anyone while still seeing the smartest recommendations at the top.
             if ($superiorToDesignationId) {
-                $selectedTeam = \App\Models\Team::where('id', $superiorToDesignationId)
-                    ->where('box_id', $boxId)
-                    ->first();
-
-                if ($selectedTeam) {
-                    $selectedDepth = (int)($selectedTeam->depth ?? 0);
-                    
-                    // Find all team IDs in the same box that have a smaller depth (are "above")
-                    $superiorTeamIds = \App\Models\Team::where('box_id', $boxId)
-                        ->where('depth', '<', $selectedDepth)
-                        ->pluck('id')
-                        ->toArray();
-                        
-                    $query->where(function($q) use ($superiorTeamIds) {
-                        if (!empty($superiorTeamIds)) {
-                            $q->whereIn('designation', $superiorTeamIds);
-                        } else {
-                            // If it's a root team, no teams are superior, but we don't want to break the OR
-                            $q->whereRaw('1=0'); 
-                        }
-                        $q->orWhere('staff_role', 'admin'); // Admins are always superior
-                    });
-                } else {
-                    // If designation not found in THIS box, don't restrict to just admins.
-                    // This allows assigning managers even if the team structure is missing or mismatched.
-                    // We just won't apply the hierarchy filter.
-                }
+                // We no longer strictly filter by designation.
             }
                 
             if ($teamOnly && !$superiorToDesignationId) {
@@ -1239,11 +1181,14 @@ class EmployeManageController extends BaseController
                 $query->whereIn('id', $allSubordinateIds);
             }
 
+            // Fetch team depths for the frontend
+            $teamDepths = \App\Models\Team::withDepth()->where('box_id', $boxId)->pluck('depth', 'id')->toArray();
+
             $boxUsers = $query->orderBy('first_name', 'asc')
                 ->orderBy('last_name', 'asc')
-                ->select('id', 'user_id', 'employee_id', 'first_name', 'last_name', 'designation', 'department', 'staff_role')
+                ->select('id', 'user_id', 'employee_id', 'first_name', 'last_name', 'designation', 'department', 'staff_role', 'reporting_manager_id')
                 ->get()
-                ->map(function ($emp) {
+                ->map(function ($emp) use ($teamDepths) {
                     $reportOfficeNames = $emp->assignedOffices->pluck('branch.name')->filter()->join(', ');
                     $isOwner = strtolower($emp->staff_role ?? '') === 'admin';
 
@@ -1256,7 +1201,7 @@ class EmployeManageController extends BaseController
                         'employee_id'         => $emp->employee_id,
                         'designation'         => $emp->designation, // Add designation ID for filtering
                         'designation_name'    => $isOwner ? 'Owner' : ($emp->designationRelation?->name ?? ''),
-                        'designation_depth'   => $emp->designationRelation?->depth ?? 0,
+                        'designation_depth'   => $teamDepths[$emp->designation] ?? 0,
                         'department'          => $emp->department, // Add department ID for filtering
                         'department_name'     => $isOwner ? 'Owner' : ($emp->departmentRelation?->name ?? ''),
                         'reporting_manager_id'=> $emp->reporting_manager_id,
@@ -1647,6 +1592,7 @@ class EmployeManageController extends BaseController
                 'pf_no'                 => 'nullable',
                 'resignation_date'      => 'nullable',
                 'allowed_ips'           => 'nullable|array',
+                'allowed_ips.*'         => 'nullable|ip',
                 'marriage_date'         => 'nullable',
                 'reporting_manager_id'  => 'nullable|integer|exists:box_users,id',
                 'staff_role'            => 'nullable|string|max:255',
@@ -1782,7 +1728,7 @@ class EmployeManageController extends BaseController
             }
 
             // If user is/becomes admin, force department and designation to "Owner"
-            $currentRole = $validated['staff_role'] ?? $employee->staff_role;
+            $currentRole = $validated['staff_role'] ?? $employee->staff_role ?? '';
             if (strtolower($currentRole) === 'admin') {
                 $employee->department = 'Owner';
                 $employee->designation = 'Owner';

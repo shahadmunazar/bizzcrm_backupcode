@@ -195,35 +195,46 @@ class CallLogController extends Controller
 
     public function apiIndex(Request $request, $boxSlug)
     {
-        $box = \App\Models\Box::where('slug', $boxSlug)->first();
-        if (!$box) {
-            return response()->json(['success' => false, 'message' => 'Box not found'], 404);
-        }
+        try {
+            $box = \App\Models\Box::where('slug', $boxSlug)->first();
+            if (!$box) {
+                return response()->json(['success' => false, 'message' => 'Box not found'], 404);
+            }
 
-        $user = auth()->user();
-        $boxUser = \App\Models\BoxUser::where('user_id', $user->id)->where('box_id', $box->id)->first();
-        $role = $boxUser ? $boxUser->staff_role : null;
+            $user = auth()->user();
+            $boxUser = \App\Models\BoxUser::where('user_id', $user->id)->where('box_id', $box->id)->first();
+            $role = $boxUser ? $boxUser->staff_role : null;
 
-        $isSuperAdmin = $user->hasRole('superadmin');
-        $isAdmin = $user->hasRole('admin');
+            $isSuperAdmin = $user->hasRole('superadmin');
+            $isAdmin = $user->hasRole('admin');
 
-        // ALL users (including superadmin) must only see logs for the requested box
-        $query = CallLog::where('box_id', $box->id);
+            // ALL users (including superadmin) must only see logs for the requested box
+            $query = CallLog::where('box_id', $box->id);
 
-        // Regular users are further restricted to only their own logs
-        if (!$isSuperAdmin && !$isAdmin) {
-            $query->where(function($q) use ($user) {
-                $q->where('user_id', $user->id)
-                  ->orWhere('created_by', $user->id);
-            });
-        } elseif ($request->has('user_id')) {
-            $query->where('user_id', $request->user_id);
-        }
+            // Regular users are further restricted to only their own logs
+            if (!$isSuperAdmin && !$isAdmin) {
+                $query->where(function($q) use ($user) {
+                    $q->where('user_id', $user->id)
+                      ->orWhere('created_by', $user->id);
+                });
+            } elseif ($request->has('user_id')) {
+                $query->where('user_id', $request->user_id);
+            }
 
-        // Filter by call type
-        if ($request->has('type') && !empty($request->type)) {
-            $query->where('type', $request->type);
-        }
+            // Filter by call type
+            if ($request->has('type') && !empty($request->type)) {
+                $query->where('type', $request->type);
+            }
+
+            // Search filter
+            if ($request->has('search') && !empty($request->search)) {
+                $searchTerm = $request->search;
+                $query->where(function($q) use ($searchTerm) {
+                    $q->where('from', 'LIKE', '%' . $searchTerm . '%')
+                      ->orWhere('to', 'LIKE', '%' . $searchTerm . '%')
+                      ->orWhere('name', 'LIKE', '%' . $searchTerm . '%');
+                });
+            }
 
         // Filter by predefined date ranges
         if ($request->has('date_filter') && !empty($request->date_filter)) {
@@ -345,6 +356,12 @@ class CallLogController extends Controller
                 'prev_page_url' => $logs->previousPageUrl(),
             ]
         ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     public function apiStore(Request $request, $boxSlug)

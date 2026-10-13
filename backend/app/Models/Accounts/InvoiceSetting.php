@@ -11,10 +11,13 @@ class InvoiceSetting extends Model
 
     protected $fillable = [
         'box_id',
+        'company_id',
         'invoice_logo',
         'logo_width',
         'logo_height',
         'invoice_prefix',
+        'from_date',
+        'to_date',
         'invoice_due_days',
         'enable_round_off',
         'round_off_type',

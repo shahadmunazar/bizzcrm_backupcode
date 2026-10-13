@@ -21,7 +21,9 @@
                         <select name="template_id" id="campaign-template-select" class="form-control" required>
                             <option value="">Select Template</option>
                             @foreach($templates as $template)
-                                <option value="{{ $template->id }}">{{ $template->name }}</option>
+                                @if(is_object($template))
+                                    <option value="{{ $template->id }}">{{ $template->name }}</option>
+                                @endif
                             @endforeach
                         </select>
                         <div id="selected-template-preview-inline" class="mt-3 d-none"></div>
@@ -33,7 +35,9 @@
                             <option value="">-- No Chatbot --</option>
                             @if(isset($chatbots))
                                 @foreach($chatbots as $chatbot)
-                                    <option value="{{ $chatbot->id }}">{{ $chatbot->name }}</option>
+                                    @if(is_object($chatbot))
+                                        <option value="{{ $chatbot->id }}">{{ $chatbot->name }}</option>
+                                    @endif
                                 @endforeach
                             @endif
                         </select>

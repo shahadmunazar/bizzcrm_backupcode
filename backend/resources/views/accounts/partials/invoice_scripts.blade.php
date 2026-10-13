@@ -2,25 +2,117 @@
 <script>
 $(document).ready(function() {
     
+    // Load Currencies Dynamically
+    function loadCurrencies() {
+        const boxCurrencyCode = "{{ $box->currency_code ?? 'INR' }}";
+        fetch("{{ asset('assets/json/countries.json') }}")
+            .then(res => res.json())
+            .then(data => {
+                const currencyMap = new Map();
+                data.forEach(country => {
+                    if (country.currencies && Object.keys(country.currencies).length > 0) {
+                        const code = Object.keys(country.currencies)[0];
+                        const currency = country.currencies[code];
+                        if (!currencyMap.has(code)) {
+                            currencyMap.set(code, {
+                                code: code,
+                                name: currency.name,
+                                symbol: currency.symbol || code
+                            });
+                        }
+                    }
+                });
+                
+                let currencies = Array.from(currencyMap.values());
+                currencies.sort((a, b) => a.name.localeCompare(b.name));
+                
+                let optionsHtml = '';
+                currencies.forEach(c => {
+                    let isSelected = (c.code === boxCurrencyCode) ? 'selected' : '';
+                    optionsHtml += `<option value="${c.code}" ${isSelected}>${c.name} (${c.code})</option>`;
+                });
+                
+                var addCurrencySelect = $('#add_currency');
+                var editCurrencySelect = $('#edit_currency');
+                var addPaymentSelect = $('#add_payment_method');
+                var editPaymentSelect = $('#edit_payment_method');
+                
+                // Destroy existing select2 instance if it exists
+                if (addCurrencySelect.hasClass("select2-hidden-accessible")) addCurrencySelect.select2('destroy');
+                if (editCurrencySelect.hasClass("select2-hidden-accessible")) editCurrencySelect.select2('destroy');
+                if (addPaymentSelect.hasClass("select2-hidden-accessible")) addPaymentSelect.select2('destroy');
+                if (editPaymentSelect.hasClass("select2-hidden-accessible")) editPaymentSelect.select2('destroy');
+                
+                addCurrencySelect.html(optionsHtml);
+                editCurrencySelect.html(optionsHtml);
+                
+                if ($.fn.select2) {
+                    addCurrencySelect.select2({ dropdownParent: $('#offcanvas_add_invoice') });
+                    editCurrencySelect.select2({ dropdownParent: $('#offcanvas_edit_invoice') });
+                    addPaymentSelect.select2({ dropdownParent: $('#offcanvas_add_invoice') });
+                    editPaymentSelect.select2({ dropdownParent: $('#offcanvas_edit_invoice') });
+                }
+            })
+            .catch(err => console.error('Failed to load currencies', err));
+    }
+    
+    // Initialize currencies
+    loadCurrencies();
+    
+    // Load Payment Modes Dynamically
+    function loadPaymentModes() {
+        $.ajax({
+            url: "{{ box_route('accounts.ajax_payment_modes') }}",
+            type: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                if (response.success && response.data) {
+                    let optionsHtml = '<option value="">Choose</option>';
+                    response.data.forEach(function(mode) {
+                        optionsHtml += `<option value="${mode.name}">${mode.name}</option>`;
+                    });
+                    
+                    var addPaymentSelect = $('#add_payment_method');
+                    var editPaymentSelect = $('#edit_payment_method');
+                    
+                    addPaymentSelect.html(optionsHtml);
+                    editPaymentSelect.html(optionsHtml);
+                }
+            },
+            error: function(err) {
+                console.error('Failed to load payment modes', err);
+            }
+        });
+    }
+    
+    loadPaymentModes();
     // Function to fetch and reload invoices
-    function loadInvoices() {
+    function loadInvoices(customType, tbodySelector, tableSelector) {
+        var reqType = customType || '{{ $invoice_type ?? "invoice" }}';
+        var tBody = tbodySelector || '#invoices-table-body';
+        var table = tableSelector || '.datatable';
+        
         $.ajax({
             url: "{{ box_route('accounts.ajax_invoices') }}",
             type: 'GET',
-            data: { company_id: '{{ $company_id ?? "" }}' },
+            data: { 
+                company_id: '{{ $company_id ?? "" }}',
+                lead_id: '{{ $lead_id ?? "" }}',
+                type: reqType
+            },
             dataType: 'json',
             success: function(response) {
                 if (response.success) {
                     var baseUrl = "{{ url(request()->segment(1)) }}";
                 
                 // Destroy existing DataTable instance and clean up placeholders
-                    if ($.fn.DataTable.isDataTable('.datatable')) {
-                        $('.datatable').DataTable().destroy();
-                        $('.datatable-paginate').empty();
-                        $('.datatable-length').empty();
+                    if ($.fn.DataTable.isDataTable(table)) {
+                        $(table).DataTable().destroy();
+                        $(table).closest('.custom-table').next('.row').find('.datatable-paginate').empty();
+                        $(table).closest('.custom-table').next('.row').find('.datatable-length').empty();
                     }
                     
-                    var tbody = $('#invoices-table-body');
+                    var tbody = $(tBody);
                     tbody.empty();
                     
                     if (response.data.length > 0) {
@@ -61,6 +153,11 @@ $(document).ready(function() {
                                 }
                             }
                             
+                            var convertAction = '';
+                            if (invoice.type === 'performa') {
+                                convertAction = `<a class="dropdown-item convert-invoice-btn" href="javascript:void(0);" data-id="${invoice.id}"><i class="ti ti-exchange text-warning"></i> Convert to Invoice</a>`;
+                            }
+                            
                             var tr = `
                                 <tr>
                                     <td><label class="checkboxs"><input type="checkbox"><span class="checkmarks"></span></label></td>
@@ -83,7 +180,8 @@ $(document).ready(function() {
                                         <div class="dropdown table-action">
                                             <a href="#" class="action-icon" data-bs-toggle="dropdown" aria-expanded="false"><i class="fa fa-ellipsis-v"></i></a>
                                             <div class="dropdown-menu dropdown-menu-right">
-                                                <a class="dropdown-item edit-invoice-btn" href="#" data-bs-toggle="offcanvas" data-bs-target="#offcanvas_edit" data-invoice="${invoiceData}"><i class="ti ti-edit text-blue"></i> Edit</a>
+                                                ${convertAction}
+                                                <a class="dropdown-item edit-invoice-btn" href="#" data-bs-toggle="offcanvas" data-bs-target="#offcanvas_edit_invoice" data-invoice="${invoiceData}"><i class="ti ti-edit text-blue"></i> Edit</a>
                                                 <a class="dropdown-item delete-invoice-btn" href="#" data-bs-toggle="modal" data-bs-target="#delete_invoices" data-id="${invoice.id}"><i class="ti ti-trash text-danger"></i>Delete</a>
                                                 <a class="dropdown-item" href="${baseUrl}/invoice-details/${invoice.id}"><i class="ti ti-clipboard-copy text-green"></i> View Invoices</a>
                                                 <a class="dropdown-item" href="javascript:void(0);"><i class="ti ti-checks text-success"></i> Mark as Paid</a>
@@ -100,7 +198,7 @@ $(document).ready(function() {
                     }
                     
                     // Re-initialize DataTable
-                    $('.datatable').DataTable({
+                    $(table).DataTable({
                         "bFilter": false,
                         "bInfo": false,
                         "autoWidth": true,
@@ -117,17 +215,26 @@ $(document).ready(function() {
                             },
                         },
                         initComplete: (settings, json) => {
-                            $('.dataTables_paginate').appendTo('.datatable-paginate');
-                            $('.dataTables_length').appendTo('.datatable-length');
+                            var paginateTarget = $(table).closest('.custom-table').next('.row').find('.datatable-paginate');
+                            var lengthTarget = $(table).closest('.custom-table').next('.row').find('.datatable-length');
+                            
+                            if (paginateTarget.length) {
+                                $(table).closest('.dataTables_wrapper').find('.dataTables_paginate').appendTo(paginateTarget);
+                            }
+                            if (lengthTarget.length) {
+                                $(table).closest('.dataTables_wrapper').find('.dataTables_length').appendTo(lengthTarget);
+                            }
                         },
                     });
                 }
             },
             error: function() {
-                $('#invoices-table-body').html('<tr><td colspan="12" class="text-center text-danger">Error loading invoices.</td></tr>');
+                $(tBody).html('<tr><td colspan="12" class="text-center text-danger">Error loading invoices.</td></tr>');
             }
         });
     }
+
+    window.loadInvoices = loadInvoices;
 
     // Initial load
     loadInvoices();
@@ -141,6 +248,17 @@ $(document).ready(function() {
             "timeOut": "3000",
         };
     }
+
+    // Set type based on trigger button
+    $(document).on('click', '.btn-add-invoice-trigger', function() {
+        var type = $(this).data('invoice-type') || 'invoice';
+        $('#add-invoice-form input[name="type"]').val(type);
+        if(type === 'performa') {
+            $('#offcanvas_add_invoice .offcanvas-header h4').text('Add New Performa Invoice');
+        } else {
+            $('#offcanvas_add_invoice .offcanvas-header h4').text('Add New Invoice');
+        }
+    });
 
     // Initialize add form with one empty row
     $('#offcanvas_add_invoice').on('show.bs.offcanvas', function () {
@@ -181,12 +299,19 @@ $(document).ready(function() {
     });
 
     // Handle Edit Invoice Button Click (Populate Form)
-    $(document).on('click', '.edit-invoice-btn', function() {
+    $(document).on('click', '.edit-invoice-btn', function(e) {
+        e.preventDefault();
         var invoice = $(this).data('invoice');
         
         // Ensure invoice is a parsed object
         if (typeof invoice === 'string') {
             invoice = JSON.parse(invoice);
+        }
+        
+        if (invoice.type === 'performa') {
+            $('#offcanvas_edit_invoice .offcanvas-header h4').text('Edit Proforma Invoice');
+        } else {
+            $('#offcanvas_edit_invoice .offcanvas-header h4').text('Edit Invoice');
         }
         
         $('#edit_invoice_id').val(invoice.id);
@@ -219,15 +344,19 @@ $(document).ready(function() {
         // Format invoice date for input
         if (invoice.invoice_date) {
             var dateObj = new Date(invoice.invoice_date);
-            var dateStr = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-            $('#edit_invoice_date').val(dateStr);
+            var y = dateObj.getFullYear();
+            var m = String(dateObj.getMonth() + 1).padStart(2, '0');
+            var d = String(dateObj.getDate()).padStart(2, '0');
+            $('#edit_invoice_date').val(`${y}-${m}-${d}`);
         }
         
         // Format due date for input
         if (invoice.due_date) {
             var dueObj = new Date(invoice.due_date);
-            var dueDateStr = dueObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-            $('#edit_due_date').val(dueDateStr);
+            var dy = dueObj.getFullYear();
+            var dm = String(dueObj.getMonth() + 1).padStart(2, '0');
+            var dd = String(dueObj.getDate()).padStart(2, '0');
+            $('#edit_due_date').val(`${dy}-${dm}-${dd}`);
         } else {
             $('#edit_due_date').val('');
         }
@@ -268,8 +397,8 @@ $(document).ready(function() {
             success: function(response) {
                 if (response.success) {
                     if (typeof toastr !== 'undefined') toastr.success(response.message);
-                    $('#offcanvas_edit').offcanvas('hide');
-                    loadInvoices(); // Reload table
+                    $('#offcanvas_edit_invoice').offcanvas('hide');
+                    @if(isset($onSuccess)) {!! $onSuccess !!} @else loadInvoices(); @endif
                 }
             },
             error: function(xhr) {
@@ -317,6 +446,31 @@ $(document).ready(function() {
         });
     });
 
+    // Handle Convert to Invoice
+    $(document).on('click', '.convert-invoice-btn', function(e) {
+        e.preventDefault();
+        var invoiceId = $(this).data('id');
+        
+        if(confirm('Are you sure you want to convert this Proforma Invoice to a regular Invoice?')) {
+            $.ajax({
+                url: "{{ box_route('accounts.invoices.convert', ['id' => ':id']) }}".replace(':id', invoiceId),
+                type: "POST",
+                data: {
+                    _token: "{{ csrf_token() }}"
+                },
+                success: function(response) {
+                    if (response.success) {
+                        if (typeof toastr !== 'undefined') toastr.success(response.message);
+                        @if(isset($onSuccess)) {!! $onSuccess !!} @else loadInvoices(); @endif
+                    }
+                },
+                error: function(xhr) {
+                    if (typeof toastr !== 'undefined') toastr.error(xhr.responseJSON?.message || 'Failed to convert.');
+                }
+            });
+        }
+    });
+
     // Invoice Items Logic
     var itemIndex = 0;
     
@@ -359,7 +513,7 @@ $(document).ready(function() {
         
         var newRow = $('#item-row-' + idx);
         var select = newRow.find('.item-product-select');
-        var parent = prefix === 'add' ? $('#offcanvas_add_invoice') : $('#offcanvas_' + prefix);
+        var parent = prefix === 'add' ? $('#offcanvas_add_invoice') : $('#offcanvas_' + prefix + '_invoice');
         
         select.select2({
             dropdownParent: parent,

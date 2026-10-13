@@ -258,7 +258,7 @@ class BoxUser extends Model implements AuditableContract
         return array_unique($allIds);
     }
 
-    private static function getRecursiveSubordinates($boxId, $managerId, &$allIds)
+    public static function getRecursiveSubordinates($boxId, $managerId, &$allIds)
     {
         $directReports = self::where('box_id', $boxId)
             ->where('reporting_manager_id', $managerId)

@@ -63,6 +63,7 @@ class DepartmentCreateJob implements ShouldQueue
                     $head = $this->createTeam($boxId, $department->id, "{$departmentName} 5", $userId);
 
                     if ($departmentName === 'Marketing') {
+                        $this->createTeam($boxId, $department->id, 'Marketing Executive', $userId, $head);
                         $m51 = $this->createTeam($boxId, $department->id, 'MKT 5.1', $userId, $head);
                         $m511 = $this->createTeam($boxId, $department->id, 'MKT 5.1.1', $userId, $m51);
                         $this->createMultipleTeams($boxId, $department->id, [

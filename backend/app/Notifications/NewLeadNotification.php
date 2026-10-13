@@ -26,7 +26,22 @@ class NewLeadNotification extends Notification
 
     public function via($notifiable)
     {
-        return ['database'];
+        return ['database', \App\Channels\FcmChannel::class];
+    }
+
+    public function toFcm($notifiable)
+    {
+        $dbData = $this->toArray($notifiable);
+        
+        return [
+            'title' => $dbData['title'],
+            'body' => $dbData['message'],
+            'data' => [
+                'type' => $dbData['type'],
+                'lead_id' => (string) $dbData['lead_id'],
+                'lead_name' => $dbData['lead_name']
+            ]
+        ];
     }
 
     public function toArray($notifiable)

@@ -27,7 +27,7 @@
 									<div class="col-sm-4">
 										<div class="icon-form mb-3 mb-sm-0">
 											<span class="form-icon"><i class="ti ti-search"></i></span>
-											<input type="text" class="form-control" placeholder="Search For Target">
+											<input type="text" class="form-control global-search" placeholder="Search For Target">
 										</div>
 									</div>
 									<div class="col-sm-8">
@@ -518,48 +518,15 @@
 													<label class="checkboxs"><input type="checkbox" id="select-all"><span class="checkmarks"></span></label>
 												</th>
 												<th>Target Name</th>
-												<th>Duration</th>
-												<th>Sales Amount</th>
-												<th>Payment Collection</th>
-												<th>Leads</th>
-												<th>New Customes</th>
-												<th>Customer Visit</th>
+												<th>Frequency</th>
+												<th>Score (%)</th>
+												<th>Metrics Count</th>
+												<th>Status</th>
 												<th class="text-end">Action</th>
 											</tr>
 										</thead>
-										<tbody>
-											<tr>
-												<td><label class="checkboxs"><input type="checkbox"><span class="checkmarks"></span></label></td>
-												<td>April Target</td>
-												<td>Calendar Week</td>
-												<td>₹50,000</td>
-												<td>5,00000</td>
-												<td>0</td>
-												<td>0</td>
-												<td>0</td>
-												<td>
-													<div class="dropdown table-action">
-														<a href="#" class="action-icon " data-bs-toggle="dropdown" aria-expanded="false">
-															<i class="fa fa-ellipsis-v"></i>
-														</a>
-														<div class="dropdown-menu dropdown-menu-right">
-															<a class="dropdown-item" href="#" data-bs-toggle="offcanvas" data-bs-target="#offcanvas_edit">
-																<i class="ti ti-edit text-blue"></i>Edit
-															</a>
-															<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#delete_company">
-																<i class="ti ti-trash text-danger"></i>Delete
-															</a>
-														</div>
-													</div>
-												</td>
-											</tr>
-											
-											
-											
-											
-		
-											
-											
+										<tbody id="my_targets_tbody">
+                                            <!-- AJAX Data -->
 										</tbody>
 									</table>
 								</div>
@@ -651,6 +618,39 @@
 											</div>
 										</div>
 									</div>
+                                    <div class="mb-3 row">
+                                        <label class="col-form-label col-lg-5"><input type="checkbox" name="checkbox" class="me-2"> No of Matured</label>
+                                        <div class="col-lg-7">
+                                            <div class="input-group">
+                                                <input type="number" class="form-control" placeholder="0">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3 row">
+                                        <label class="col-form-label col-lg-5"><input type="checkbox" name="checkbox" class="me-2"> No of task Closed manually</label>
+                                        <div class="col-lg-7">
+                                            <div class="input-group">
+                                                <input type="number" class="form-control" placeholder="0">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3 row">
+                                        <label class="col-form-label col-lg-5"><input type="checkbox" name="checkbox" class="me-2"> Amount of Matured</label>
+                                        <div class="col-lg-7">
+                                            <div class="input-group">
+                                                <span class="input-group-text">₹</span>
+                                                <input type="number" class="form-control" placeholder="0">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3 row">
+                                        <label class="col-form-label col-lg-5"><input type="checkbox" name="checkbox" class="me-2"> No of Call Outgoing + Incoming</label>
+                                        <div class="col-lg-7">
+                                            <div class="input-group">
+                                                <input type="number" class="form-control" placeholder="0">
+                                            </div>
+                                        </div>
+                                    </div>
 
 									
 									
@@ -996,4 +996,94 @@
 
 	</div>
 	
+    @push('scripts')
+    <script>
+        $(document).ready(function() {
+            const boxSlug = '{{ request()->route("box_slug") }}';
+            let startDate = '';
+            let endDate = '';
+            let searchQuery = '';
+            
+            function loadMyAssignments() {
+                let url = '/' + boxSlug + '/fieldstracking/target-api/my-assignments';
+                let params = [];
+                if (startDate && endDate) {
+                    params.push('start_date=' + startDate + '&end_date=' + endDate);
+                }
+                
+                if (searchQuery) {
+                    params.push('search=' + encodeURIComponent(searchQuery));
+                }
+
+                if (params.length > 0) {
+                    url += '?' + params.join('&');
+                }
+
+                $.get(url, function(data) {
+                    let tbody = $('#my_targets_tbody');
+                    tbody.empty();
+
+                    if (data.length === 0) {
+                        tbody.append('<tr><td colspan="7" class="text-center">No targets assigned to you.</td></tr>');
+                        return;
+                    }
+
+                    data.forEach(assignment => {
+                        let score = assignment.performance ? assignment.performance.achievement_percentage : null;
+                        let scoreDisplay = score !== null ? parseFloat(score).toFixed(2) + '%' : '<span class="text-muted">Not calculated</span>';
+                        let metricsCount = assignment.template.metrics ? assignment.template.metrics.length : 0;
+                        
+                        let row = `
+                            <tr>
+                                <td><label class="checkboxs"><input type="checkbox"><span class="checkmarks"></span></label></td>
+                                <td>${assignment.template.name}</td>
+                                <td>${assignment.template.frequency}</td>
+                                <td>${scoreDisplay}</td>
+                                <td><span class="badge badge-pill badge-primary">${metricsCount}</span></td>
+                                <td><span class="badge badge-pill bg-success">${assignment.status}</span></td>
+                                <td>
+                                    <div class="dropdown table-action">
+                                        <a href="#" class="action-icon " data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fa fa-ellipsis-v"></i>
+                                        </a>
+                                        <div class="dropdown-menu dropdown-menu-right">
+                                            <a class="dropdown-item" href="#">
+                                                <i class="ti ti-eye text-blue"></i> View Details
+                                            </a>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                        tbody.append(row);
+                    });
+                });
+            }
+
+            let searchTimeout = null;
+            $('.global-search').on('input', function() {
+                searchQuery = $(this).val();
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(function() {
+                    loadMyAssignments();
+                }, 300);
+            });
+
+            $('.bookingrange').on('apply.daterangepicker', function(ev, picker) {
+                startDate = picker.startDate.format('YYYY-MM-DD');
+                endDate = picker.endDate.format('YYYY-MM-DD');
+                loadMyAssignments();
+            });
+
+            $('.bookingrange').on('cancel.daterangepicker', function(ev, picker) {
+                $(this).val('');
+                startDate = '';
+                endDate = '';
+                loadMyAssignments();
+            });
+
+            loadMyAssignments();
+        });
+    </script>
+    @endpush
 @endsection

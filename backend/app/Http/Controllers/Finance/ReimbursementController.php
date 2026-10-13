@@ -18,6 +18,21 @@ class ReimbursementController extends Controller
 
     public function __construct(ReimbursementService $reimbursementService)
     {
+        $this->middleware(function ($request, $next) {
+            $user = \Illuminate\Support\Facades\Auth::user();
+            if (!$user) return $next($request);
+
+            $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
+            $boxUser = \App\Models\BoxUser::where('user_id', $user->id)->first();
+            $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
+
+            if (!($isGlobalAdmin || $isBoxAdmin || \App\Helpers\PermissionHelper::hasModulePermission('finance_reimbursements', 'read'))) {
+                abort(403, 'You do not have permission to access this module.');
+            }
+
+            return $next($request);
+        });
+
         $this->reimbursementService = $reimbursementService;
     }
 
@@ -59,6 +74,15 @@ class ReimbursementController extends Controller
      */
     public function store(Request $request, $box_slug)
     {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
+        $boxUser = \App\Models\BoxUser::where('user_id', $user->id)->first();
+        $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
+
+        if (!($isGlobalAdmin || $isBoxAdmin || \App\Helpers\PermissionHelper::hasModulePermission('finance_reimbursements', 'process'))) {
+            return response()->json(['success' => false, 'message' => 'You do not have permission to process payments.'], 403);
+        }
+
         $box = Box::where('slug', $box_slug)->firstOrFail();
 
         $validated = $request->validate([

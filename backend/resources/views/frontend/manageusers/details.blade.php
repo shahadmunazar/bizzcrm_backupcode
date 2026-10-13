@@ -3183,7 +3183,8 @@ if (imgSrc) {
                 data: {
                     department: filterDept,
                     superior_to_designation: filterDesignation,
-                    exclude_id: currentEditingEmpId || null
+                    exclude_id: currentEditingEmpId || null,
+                    include_id: selectedId || null
                 },
                 success: function(response) {
                     $select.prop('disabled', false);

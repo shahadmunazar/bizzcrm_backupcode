@@ -2305,6 +2305,8 @@
                             $('#source-filter-list').html('<li class="text-danger p-2">Invalid response format</li>');
                         }
                     },
+
+                    
                     error: function (xhr, status, error) {
                         console.error('Failed to load sources:', {
                             status: status,
@@ -2418,16 +2420,11 @@
                 }
             }, 100);
 
-            // Initialize Leads Date Filter to This Month by default
-            var currentMonthStart = moment().startOf('month');
-            var currentMonthEnd = moment().endOf('month');
-            
             $('#leadsDateFilter').daterangepicker({
-                startDate: currentMonthStart,
-                endDate: currentMonthEnd,
-                autoUpdateInput: true, // We want the input to show the value immediately
+                autoUpdateInput: false, // Important: keep this false so it doesn't default to "This Month"
                 locale: {
-                    format: 'MM/DD/YYYY'
+                    format: 'MM/DD/YYYY',
+                    cancelLabel: 'Clear'
                 },
                 ranges: {
                     'Today': [moment(), moment()],
@@ -2441,6 +2438,7 @@
 
             // Reload DataTables when Date Range changes
             $('#leadsDateFilter').on('apply.daterangepicker', function(ev, picker) {
+                $(this).val(picker.startDate.format('MM/DD/YYYY') + ' - ' + picker.endDate.format('MM/DD/YYYY'));
                 if (leadsTableInstance) {
                     leadsTableInstance.ajax.reload(null, false);
                 } else {

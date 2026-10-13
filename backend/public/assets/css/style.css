@@ -1678,7 +1678,7 @@
   display: flex;
   background-color: #FFF;
   margin-top: 0;
-  z-index: 1001;
+  z-index: 111;
   position: fixed;
   top: 56px;
   bottom: 0;
@@ -1695,7 +1695,7 @@
     -webkit-transition: all 0.4s ease;
     -ms-transition: all 0.4s ease;
     transition: all 0.4s ease;
-    z-index: 1041;
+    /*z-index: 1041;*/
     background: #FFF;
   }
 }
@@ -45436,6 +45436,11 @@ li.submenu.shortname a span {
   display: block;
 }
 
+@layer utilities {
+  .collapse {
+    visibility: inherit;
+  }
+}
 
 @media (min-width:320px) and (max-width:767px) {
   html body #chat-messages-body.messages {

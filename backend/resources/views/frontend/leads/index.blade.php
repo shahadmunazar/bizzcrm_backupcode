@@ -680,9 +680,35 @@
 				<!-- /Chart -->
 			</div>
 
-
-
-
+			<div class="row">
+				<!-- Assigned Leads By User Chart -->
+				<div class="col-md-12">
+					<div class="card">
+						<div class="card-header d-flex align-items-center justify-content-between flex-wrap row-gap-2">
+							<h5 class="card-title">Assigned Leads By User (Monthly)</h5>
+							<div class="dropdown">
+								<a href="javascript:void(0);"
+									class="btn btn-white border btn-sm d-inline-flex align-items-center chart-year-display"
+									data-bs-toggle="dropdown">
+									<i class="ti ti-calendar me-1"></i>{{ $defaultYear }}
+								</a>
+								<ul class="dropdown-menu dropdown-menu-end p-3 chart-year-selector">
+									@foreach ($availableYears as $year)
+										<li>
+											<a href="javascript:void(0);"
+												class="dropdown-item rounded-1">{{ $year }}</a>
+										</li>
+									@endforeach
+								</ul>
+							</div>
+						</div>
+						<div class="card-body">
+							<div id="assigned-leads-user-chart" class="chart-set"></div>
+						</div>
+					</div>
+				</div>
+				<!-- /Chart -->
+			</div>
 
 
 
@@ -1716,6 +1742,76 @@
 							};
 							dashboardCharts.sourcesBar = new ApexCharts(document.querySelector("#s-col-stacked"), optionsSources);
 							dashboardCharts.sourcesBar.render();
+						}
+
+						// 11. Assigned Leads By User Monthly Chart (Stacked Bar - Multi-series)
+						if (document.querySelector("#assigned-leads-user-chart") && response.assignedByUserMonthlyData) {
+							if (dashboardCharts.assignedUserBar) dashboardCharts.assignedUserBar.destroy();
+
+							var optionsAssignedUser = {
+								series: response.assignedByUserMonthlyData.series,
+								chart: {
+									height: 350,
+									type: 'bar',
+									stacked: true,
+									toolbar: {
+										show: false,
+									},
+									animations: {
+										enabled: true,
+										easing: 'easeinout',
+										speed: 800,
+									}
+								},
+								plotOptions: {
+									bar: {
+										horizontal: false,
+										columnWidth: '55%',
+										borderRadius: 4,
+									},
+								},
+								dataLabels: {
+									enabled: true,
+									formatter: function (val) {
+										return val > 0 ? val : '';
+									},
+									style: {
+										fontSize: '10px',
+										colors: ["#fff"]
+									}
+								},
+								xaxis: {
+									categories: response.assignedByUserMonthlyData.labels,
+									axisBorder: {
+										show: false
+									},
+								},
+								yaxis: {
+									title: {
+										text: 'Number of Leads'
+									}
+								},
+								fill: {
+									opacity: 1
+								},
+								colors: response.assignedByUserMonthlyData.colors,
+								grid: {
+									borderColor: '#f1f1f1',
+								},
+								legend: {
+									position: 'top',
+									horizontalAlign: 'right',
+								},
+								tooltip: {
+									y: {
+										formatter: function (val) {
+											return val + " Leads"
+										}
+									}
+								}
+							};
+							dashboardCharts.assignedUserBar = new ApexCharts(document.querySelector("#assigned-leads-user-chart"), optionsAssignedUser);
+							dashboardCharts.assignedUserBar.render();
 						}
 
 					}

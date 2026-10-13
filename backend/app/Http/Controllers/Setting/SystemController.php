@@ -20,11 +20,17 @@ use Illuminate\Support\Facades\Cache;
 class SystemController extends Controller
 {
 
-    public function index_working_location()
+    public function index_working_location(Request $request)
     {
         $user = Auth::user();
         $userId = Auth::id();
-        $boxUser = BoxUser::where('user_id', $userId)->first();
+        $boxSlug = $request->route('box_slug');
+        if ($boxSlug) {
+            $box = Box::where('slug', $boxSlug)->first();
+            $boxUser = $box ? BoxUser::where('user_id', $userId)->where('box_id', $box->id)->first() : null;
+        } else {
+            $boxUser = BoxUser::where('user_id', $userId)->first();
+        }
         $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
         $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
 
@@ -35,14 +41,24 @@ class SystemController extends Controller
         return view('frontend.leads.working_location');
     }
 
-    public function index()
+    public function index(Request $request)
     {
         try {
             $userId = Auth::id();
             $user = Auth::user();
 
-            // Fetch BoxUser and Box (superadmin's box)
-            $boxUser = BoxUser::where('user_id', $userId)->first();
+            $boxSlug = $request->route('box_slug');
+            
+            if ($boxSlug) {
+                $box = Box::where('slug', $boxSlug)->first();
+                if (!$box) {
+                    return redirect()->back()->with('error', 'Box not found.');
+                }
+                $boxUser = BoxUser::where('user_id', $userId)->where('box_id', $box->id)->first();
+            } else {
+                $boxUser = BoxUser::where('user_id', $userId)->first();
+            }
+
             // dd($userBox->id);
             if (!$boxUser || !$boxUser->box_id) {
                 return redirect()->back()->with('error', 'Box not found for current user.');
@@ -207,17 +223,22 @@ class SystemController extends Controller
         }
     }
 
-    public function index_all()
+    public function index_all(Request $request)
     {
         try {
             $user = Auth::user();
             $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
-            $boxUser = BoxUser::where('user_id', $user->id)->first();
+            $boxSlug = $request->route('box_slug');
+            if ($boxSlug) {
+                $box = Box::where('slug', $boxSlug)->first();
+                $boxUser = $box ? BoxUser::where('user_id', $user->id)->where('box_id', $box->id)->first() : null;
+            } else {
+                $boxUser = BoxUser::where('user_id', $user->id)->first();
+            }
             $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
             if (!($isGlobalAdmin || $isBoxAdmin || \App\Helpers\PermissionHelper::hasModulePermission('leads', 'read', 'list'))) {
                 return redirect()->back()->with('error', 'You do not have permission to view leads.');
             }
-            $boxUser = BoxUser::where('user_id', $user->id)->first();
             if (!$boxUser || !$boxUser->box_id) {
                 return redirect()->back()->with('error', 'Box not found for current user.');
             }
@@ -280,13 +301,18 @@ class SystemController extends Controller
     }
 
     
-    public function index_starred()
+    public function index_starred(Request $request)
     {
         try {
             $userId = \Illuminate\Support\Facades\Auth::id();
 
-            // Fetch BoxUser and Box (superadmin's box)
-            $boxUser = \App\Models\BoxUser::where('user_id', $userId)->first();
+            $boxSlug = $request->route('box_slug');
+            if ($boxSlug) {
+                $box = \App\Models\Box::where('slug', $boxSlug)->first();
+                $boxUser = $box ? \App\Models\BoxUser::where('user_id', $userId)->where('box_id', $box->id)->first() : null;
+            } else {
+                $boxUser = \App\Models\BoxUser::where('user_id', $userId)->first();
+            }
             if (!$boxUser || !$boxUser->box_id) {
                 return redirect()->back()->with('error', 'Box not found for current user.');
             }
@@ -331,7 +357,11 @@ class SystemController extends Controller
                 ->get();
 
             // Fetch Total Leads Count (Starred)
-            $leadsCount = \App\Models\Lead::where('box_id', $boxUser->box_id)->where('is_starred', 1)->count();
+            $leadsCount = \App\Models\Lead::where('box_id', $boxUser->box_id)
+                ->whereHas('stars', function ($query) use ($userId) {
+                    $query->where('user_id', $userId);
+                })
+                ->count();
 
             return view('frontend.leads.leadsliststarred', compact(
                 'fields',
@@ -349,13 +379,18 @@ class SystemController extends Controller
         }
     }
 
-    public function index_trash()
+    public function index_trash(Request $request)
     {
         try {
             $userId = Auth::id();
 
-            // Fetch BoxUser and Box (superadmin's box)
-            $boxUser = BoxUser::where('user_id', $userId)->first();
+            $boxSlug = $request->route('box_slug');
+            if ($boxSlug) {
+                $box = Box::where('slug', $boxSlug)->first();
+                $boxUser = $box ? BoxUser::where('user_id', $userId)->where('box_id', $box->id)->first() : null;
+            } else {
+                $boxUser = BoxUser::where('user_id', $userId)->first();
+            }
             if (!$boxUser || !$boxUser->box_id) {
                 return redirect()->back()->with('error', 'Box not found for current user.');
             }
@@ -418,13 +453,18 @@ class SystemController extends Controller
         }
     }
 
-    public function index_duplicate()
+    public function index_duplicate(Request $request)
     {
         try {
             $userId = Auth::id();
 
-            // Fetch BoxUser and Box (superadmin's box)
-            $boxUser = BoxUser::where('user_id', $userId)->first();
+            $boxSlug = $request->route('box_slug');
+            if ($boxSlug) {
+                $box = Box::where('slug', $boxSlug)->first();
+                $boxUser = $box ? BoxUser::where('user_id', $userId)->where('box_id', $box->id)->first() : null;
+            } else {
+                $boxUser = BoxUser::where('user_id', $userId)->first();
+            }
             if (!$boxUser || !$boxUser->box_id) {
                 return redirect()->back()->with('error', 'Box not found for current user.');
             }
