@@ -84,6 +84,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       const response = await apiClient.get(endpoint)
       if (response && response.success) {
+        const detectedSlug = response.box_user?.box?.slug || response.box?.slug || response.user?.box?.slug
+        if (detectedSlug && detectedSlug !== 'undefined') {
+          localStorage.setItem('box_slug', detectedSlug)
+        }
         setState({
           user: response.user,
           boxUser: response.box_user,
@@ -141,6 +145,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem('access_token', token)
     if (slug && slug !== 'undefined') {
       localStorage.setItem('box_slug', slug)
+    } else {
+      localStorage.removeItem('box_slug')
     }
     fetchUser(slug === 'undefined' ? undefined : slug)
   }

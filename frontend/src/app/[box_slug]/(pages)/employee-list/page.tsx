@@ -45,7 +45,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 
-import { apiClient } from '@/lib/api-client';
+import { apiClient, STORAGE_BASE_URL } from '@/lib/api-client';
 
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -372,8 +372,7 @@ export default function EmployeeListPage() {
     const parseBool = (val: any) => val === true || val === 'true' || val === 1 || val === '1';
 
     if (employee.profile_image_path) {
-      const baseUrl = 'http://127.0.0.1:8000/storage/';
-      setCroppedImageBase64(baseUrl + employee.profile_image_path);
+      setCroppedImageBase64(STORAGE_BASE_URL + employee.profile_image_path);
     } else {
       setCroppedImageBase64(null);
     }

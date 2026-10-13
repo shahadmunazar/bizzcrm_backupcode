@@ -58,6 +58,12 @@ const AdminDashboard = () => {
            return;
         }
 
+        const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+        if (!token) {
+           setLoading(false);
+           return;
+        }
+
         const start = format(dateRange.startDate, 'yyyy-MM-dd')
         const end = format(dateRange.endDate, 'yyyy-MM-dd')
         const url = `/${slug}/dashboard/admin-attendance-list`
@@ -73,7 +79,7 @@ const AdminDashboard = () => {
       }
     }
     fetchDashboardData()
-  }, [dateRange])
+  }, [dateRange, routeBoxSlug, boxUser])
 
   if (loading || !data) {
     return <div className="p-8 flex justify-center items-center h-64 text-muted-foreground">Loading dashboard...</div>

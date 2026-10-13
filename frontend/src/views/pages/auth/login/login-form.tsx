@@ -52,9 +52,10 @@ const LoginForm = () => {
       })
 
       if (data?.success && data?.access_token) {
+        const boxSlug = data.box_user?.box?.slug || data.box?.slug || data.user?.box?.slug
         toast.success(data.message || 'Login successful!')
-        login(data.access_token, data.box?.slug)
-        router.push(`/${data.box?.slug || 'dashboard'}`)
+        login(data.access_token, boxSlug)
+        router.push(boxSlug ? `/${boxSlug}/dashboard/admin` : '/pages/auth/login')
       }
     } catch (error: any) {
       if (error instanceof ApiError && error.status === 409) {
@@ -106,9 +107,10 @@ const LoginForm = () => {
       })
 
       if (data?.success && data?.access_token) {
+        const boxSlug = data.box_user?.box?.slug || data.box?.slug || data.user?.box?.slug
         toast.success(data.message || 'Login successful!')
-        login(data.access_token, data.box?.slug)
-        router.push(`/${data.box?.slug || 'dashboard'}`)
+        login(data.access_token, boxSlug)
+        router.push(boxSlug ? `/${boxSlug}/dashboard/admin` : '/pages/auth/login')
       }
     } catch (error: any) {
       if (error instanceof ApiError && error.status === 409) {

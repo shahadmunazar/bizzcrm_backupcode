@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 // Next Imports
 import Link from 'next/link'
 import { usePathname, useSearchParams, useParams } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
 
 // Third-party Imports
 import * as Icon from 'lucide-react'
@@ -443,10 +444,14 @@ const SidebarGroupedMenuItems = ({
 }
 
 const SidebarLayout = () => {
+  const { boxUser } = useAuth()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const params = useParams()
-  const boxSlug = params.box_slug as string || ''
+  const rawBoxSlug = (params?.box_slug as string) || ''
+  const boxSlug = (rawBoxSlug && rawBoxSlug !== 'undefined')
+    ? rawBoxSlug
+    : (boxUser?.box?.slug || (typeof window !== 'undefined' ? localStorage.getItem('box_slug') : '') || '')
   
   const { state, isMobile } = useSidebar()
 
