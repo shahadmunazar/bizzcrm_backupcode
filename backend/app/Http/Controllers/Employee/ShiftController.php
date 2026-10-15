@@ -515,11 +515,11 @@ class ShiftController extends BaseController
 
             // Prepare data for update
             $data = [
-                'code'                  => $validated['shift_code'] ?? null,
-                'shift_name'            => $validated['shift_type'] ?? null,
-                'in_time'               => $formatTime($validated['shift_in_time'] ?? null),
-                'out_time'              => $formatTime($validated['shift_out_time'] ?? null),
-                'shift_hours'           => $validated['shift_hours'] ?? null,
+                'code'                  => $validated['shift_code'] ?? $request->input('code') ?? null,
+                'shift_name'            => $validated['shift_type'] ?? $request->input('shift_name') ?? null,
+                'in_time'               => $formatTime($validated['shift_in_time'] ?? $request->input('in_time') ?? null),
+                'out_time'              => $formatTime($validated['shift_out_time'] ?? $request->input('out_time') ?? null),
+                'shift_hours'           => $validated['shift_hours'] ?? $request->input('shift_hours') ?? null,
                 'shift_enabled'         => $request->input('shift_enabled') == 1,
                 'rest_enabled'          => $request->input('rest_enabled') == 1,
                 'lunch_out'             => $formatTime($validated['lunch_out'] ?? null),

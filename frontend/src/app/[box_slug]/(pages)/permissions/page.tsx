@@ -156,13 +156,14 @@ export default function RolesPermissionsSettingsPage() {
           <div>
             <label className="block text-sm font-medium mb-2">Select Role Type</label>
             <Select value={selectedRoleType} onValueChange={(val) => {
-              setSelectedRoleType(val);
-              if (val === 'admin') {
+              const v = val || 'admin';
+              setSelectedRoleType(v);
+              if (v === 'admin') {
                 setSelectedDeptId('all');
                 setSelectedTeamId('all');
               }
             }}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select Role" />
               </SelectTrigger>
               <SelectContent>
@@ -177,10 +178,11 @@ export default function RolesPermissionsSettingsPage() {
               <div>
                 <label className="block text-sm font-medium mb-2">Filter by Department</label>
                 <Select value={selectedDeptId} onValueChange={(val) => {
-                  setSelectedDeptId(val);
+                  const v = val || 'all';
+                  setSelectedDeptId(v);
                   setSelectedTeamId('all'); // Reset team when department changes
                 }}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="All Departments" />
                   </SelectTrigger>
                   <SelectContent>
@@ -194,8 +196,8 @@ export default function RolesPermissionsSettingsPage() {
 
               <div>
                 <label className="block text-sm font-medium mb-2">Filter by Team / Designation</label>
-                <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
-                  <SelectTrigger>
+                <Select value={selectedTeamId} onValueChange={(val) => setSelectedTeamId(val || 'all')}>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="All Teams" />
                   </SelectTrigger>
                   <SelectContent>

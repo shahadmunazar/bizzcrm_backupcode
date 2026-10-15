@@ -136,7 +136,7 @@ class HolidayController extends BaseController
                 'holiday_type_id'  => 'nullable',
                 'holiday_type'     => 'nullable|string',
                 'status'           => 'required|in:Active,Inactive',
-                'country_region'   => 'required|array',
+                'country_region'   => 'nullable|array',
                 'country_region.*' => 'integer|exists:countries,id',
             ]);
 

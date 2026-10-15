@@ -696,7 +696,7 @@ export default function DealsPage() {
                   );
                 })}
               </div>
-              <Select onValueChange={(v: string) => {
+              <Select onValueChange={(v: string | null) => {
                 if (!v) return;
                 const val = parseInt(v);
                 if (val && !form.assignees.includes(val)) {
@@ -728,7 +728,7 @@ export default function DealsPage() {
                   );
                 })}
               </div>
-              <Select onValueChange={(v: string) => {
+              <Select onValueChange={(v: string | null) => {
                 if (!v) return;
                 const val = parseInt(v);
                 if (val && !form.tags.includes(val)) {
@@ -893,7 +893,7 @@ export default function DealsPage() {
                       );
                     })}
                   </div>
-                  <Select onValueChange={(v: string) => {
+                  <Select onValueChange={(v: string | null) => {
                     if (!v) return;
                     const val = v;
                     if (val && !pipelineAccessUsers.includes(val)) {

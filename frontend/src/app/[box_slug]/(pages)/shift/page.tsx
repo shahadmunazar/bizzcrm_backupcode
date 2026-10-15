@@ -166,7 +166,8 @@ export default function ShiftPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this shift?")) return;
     try {
-      const res = await apiClient.delete(`/${boxSlug}/shifts`, { 
+      const res = await apiClient.delete(`/${boxSlug}/shifts?shift_id=${id}`, { 
+        params: { shift_id: id },
         body: JSON.stringify({ shift_id: id }),
         headers: { 'Content-Type': 'application/json' }
       });
@@ -321,7 +322,15 @@ export default function ShiftPage() {
 
       let res;
       if (editingId) {
-        res = await apiClient.put(`/${boxSlug}/shifts`, { ...payload, shift_id: editingId });
+        const updatePayload = {
+          ...payload,
+          shift_id: editingId,
+          shift_code: form.code,
+          shift_type: form.shift_name,
+          shift_in_time: form.in_time,
+          shift_out_time: form.out_time,
+        };
+        res = await apiClient.put(`/${boxSlug}/shifts`, updatePayload);
       } else {
         res = await apiClient.post(`/${boxSlug}/shifts`, payload);
       }

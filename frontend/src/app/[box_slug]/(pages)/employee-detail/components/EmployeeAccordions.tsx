@@ -202,7 +202,7 @@ export function EmployeeAccordions({ employee, onRefresh }: EmployeeAccordionsPr
               employee.experiences.map((exp, index) => (
                 <div key={index} className="border-b pb-3 last:border-0 last:pb-0 relative">
                   <div className="absolute top-0 right-0 flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-red-500" onClick={() => handleDelete('experience', exp.id)}><Trash2 className="w-3 h-3" /></Button>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-red-500" onClick={() => triggerDelete('experience', exp.id)}><Trash2 className="w-3 h-3" /></Button>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setExperienceModalState({isOpen: true, data: exp})}><Edit className="w-3 h-3" /></Button>
                   </div>
                   <p className="font-semibold">{exp.company_name}</p>

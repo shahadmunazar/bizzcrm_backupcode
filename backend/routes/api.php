@@ -201,6 +201,25 @@ Route::group(['prefix' => '{box_slug}', 'middleware' => ['auth:sanctum', 'check.
     Route::put('/biometric-machines', [\App\Http\Controllers\Api\BiometricMachineApiController::class, 'update'])->middleware('permission.box:attendance.biometric.update');
     Route::delete('/biometric-machines', [\App\Http\Controllers\Api\BiometricMachineApiController::class, 'destroy'])->middleware('permission.box:attendance.biometric.delete');
 
+    // Mobile Device Register APIs
+    Route::get('/device-register', [\App\Http\Controllers\DeviceRegisterController::class, 'index'])->middleware('permission.box:attendance.device_register.read|attendance.admin.read');
+    Route::post('/device-register', [\App\Http\Controllers\DeviceRegisterController::class, 'store'])->middleware('permission.box:attendance.device_register.create|attendance.admin.update');
+    Route::get('/device-register/{id}/edit', [\App\Http\Controllers\DeviceRegisterController::class, 'edit'])->middleware('permission.box:attendance.device_register.read|attendance.admin.read');
+    Route::post('/device-register/update', [\App\Http\Controllers\DeviceRegisterController::class, 'update'])->middleware('permission.box:attendance.device_register.update|attendance.admin.update');
+    Route::post('/device-register/approve/{id}', [\App\Http\Controllers\DeviceRegisterController::class, 'approve'])->middleware('permission.box:attendance.device_register.update|attendance.admin.update');
+    Route::post('/device-register/revoke/{id}', [\App\Http\Controllers\DeviceRegisterController::class, 'revoke'])->middleware('permission.box:attendance.device_register.update|attendance.admin.update');
+    Route::delete('/device-register/{id}', [\App\Http\Controllers\DeviceRegisterController::class, 'destroy'])->middleware('permission.box:attendance.device_register.delete|attendance.admin.delete');
+
+    // Mobile Attendance Reports APIs
+    Route::get('/mobile-attendance/fingerprints', [\App\Http\Controllers\MobileAttendanceReportController::class, 'fingerprints'])->middleware('permission.box:attendance.mobile_attendance.read|attendance.admin.read');
+    Route::post('/mobile-attendance/fingerprints/revoke/{id}', [\App\Http\Controllers\MobileAttendanceReportController::class, 'revokeFingerprint'])->middleware('permission.box:attendance.mobile_attendance.update|attendance.admin.update');
+    Route::delete('/mobile-attendance/fingerprints/{id}', [\App\Http\Controllers\MobileAttendanceReportController::class, 'destroyFingerprint'])->middleware('permission.box:attendance.mobile_attendance.delete|attendance.admin.delete');
+    Route::get('/mobile-attendance/punches', [\App\Http\Controllers\MobileAttendanceReportController::class, 'punches'])->middleware('permission.box:attendance.mobile_attendance.read|attendance.admin.read');
+
+    // Attendance Module Settings APIs
+    Route::get('/attendace-module/get', [\App\Http\Controllers\Setting\SettingsController::class, 'getAttendanceModuleSettings'])->middleware('permission.box:website_settings.attendance_module.update|attendance.admin.read');
+    Route::post('/attendace-module/save', [\App\Http\Controllers\Setting\SettingsController::class, 'saveAttendanceModuleSettings'])->middleware('permission.box:website_settings.attendance_module.update|attendance.admin.update');
+
     // Employee Attendance APIs
     Route::get('/attendance/employee/records', [\App\Http\Controllers\Api\AttendanceApiController::class, 'employeeAttendance'])->middleware('permission.box:attendance.employee.read');
     Route::get('/attendance/employee/summary', [\App\Http\Controllers\Employee\AttendaceController::class, 'checkattendace_summary'])->middleware('permission.box:attendance.employee.read');
@@ -246,16 +265,16 @@ Route::group(['prefix' => '{box_slug}', 'middleware' => ['auth:sanctum', 'check.
 
     // Leave Transaction APIs
     Route::get('/leave-transaction-all', [\App\Http\Controllers\Employee\LeaveTransactionController::class, 'Leave_dataTransaction'])->middleware('permission.box:attendance.leave_transaction.read');
-    Route::get('/calculate-leave-transactions-all', [\App\Http\Controllers\Employee\LeaveTransactionController::class, 'calculate_leave_transactions_all'])->middleware('permission.box:attendance.leave_transaction.update');
+    Route::get('/calculate-leave-transactions-all', [\App\Http\Controllers\Employee\LeaveTransactionController::class, 'calculate_leave_transactions_all'])->middleware('permission.box:attendance.leave_transaction.read|attendance.leave_transaction.update');
     
     // Existing structured ones
     Route::get('/leaves/transactions', [\App\Http\Controllers\Employee\LeaveTransactionController::class, 'Leave_dataTransaction'])->middleware('permission.box:attendance.leave_transaction.read');
     Route::post('/leaves/transactions', [\App\Http\Controllers\Employee\LeaveTransactionController::class, 'store_leave_transaction'])->middleware('permission.box:attendance.leave_transaction.create');
-    Route::get('/leaves/transactions/calculate-all', [\App\Http\Controllers\Employee\LeaveTransactionController::class, 'calculate_leave_transactions_all'])->middleware('permission.box:attendance.leave_transaction.update');
-    Route::get('/leaves/transactions/calculate-team-all', [\App\Http\Controllers\Employee\LeaveTransactionController::class, 'calculate_team_leave_transactions_all'])->middleware('permission.box:attendance.leave_transaction.update');
+    Route::get('/leaves/transactions/calculate-all', [\App\Http\Controllers\Employee\LeaveTransactionController::class, 'calculate_leave_transactions_all'])->middleware('permission.box:attendance.leave_transaction.read|attendance.leave_transaction.update');
+    Route::get('/leaves/transactions/calculate-team-all', [\App\Http\Controllers\Employee\LeaveTransactionController::class, 'calculate_team_leave_transactions_all'])->middleware('permission.box:attendance.leave_transaction.read|attendance.leave_transaction.update');
 
     // Employee List APIs (Dropdown helpers)
-    Route::get('/employees/list', [\App\Http\Controllers\Employee\EmployeManageController::class, 'getBoxUsers'])->middleware('permission.box:user_management.employee_list.read');
+    Route::get('/employees/list', [\App\Http\Controllers\Employee\EmployeManageController::class, 'getBoxUsers'])->middleware('permission.box:user_management.employee_list.read|attendance.leave_transaction.read|attendance.leave_transaction.create|attendance.leaves.read');
 
     // Holiday APIs
     Route::get('/holidays', [\App\Http\Controllers\Employee\HolidayController::class, 'getHolidayData'])->middleware('permission.box:attendance.holiday.read');
@@ -281,6 +300,8 @@ Route::group(['prefix' => '{box_slug}', 'middleware' => ['auth:sanctum', 'check.
     Route::get('/holidays/types/prefill', [\App\Http\Controllers\Employee\HolidayTypeController::class, 'HolidayPrefill'])->middleware('permission.box:attendance.holiday_type.read');
 
     // Shift APIs
+    Route::get('/shifts', [\App\Http\Controllers\Employee\ShiftController::class, 'Shiftdata'])->middleware('permission.box:attendance.shift.read');
+    Route::get('/shifts/list', [\App\Http\Controllers\Employee\ShiftController::class, 'Shiftdata'])->middleware('permission.box:attendance.shift.read');
     Route::get('/shifts/details', [\App\Http\Controllers\Employee\ShiftController::class, 'ShiftDetails'])->middleware('permission.box:attendance.shift.read');
     Route::post('/shifts', [\App\Http\Controllers\Employee\ShiftController::class, 'store_shift'])->middleware('permission.box:attendance.shift.create');
     Route::put('/shifts', [\App\Http\Controllers\Employee\ShiftController::class, 'updateShift'])->middleware('permission.box:attendance.shift.update');

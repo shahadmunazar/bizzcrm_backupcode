@@ -214,8 +214,54 @@ export const navItems: NavItem[] = [
             href: '/attendance-calendar'
           },
           {
+            label: 'Leaves',
+            childItems: [
+              {
+                label: 'Leaves',
+                href: '/leaves'
+              },
+              {
+                label: 'Admin Leaves',
+                href: '/admin-leaves'
+              },
+              {
+                label: 'Leave Type',
+                href: '/leave-type'
+              },
+              {
+                label: 'Leave Transaction',
+                href: '/leave-transaction'
+              },
+              {
+                label: 'Leave Transaction All',
+                href: '/leave-transaction-all'
+              },
+              {
+                label: 'Team Leave Transaction',
+                href: '/team-leave-transaction'
+              }
+            ]
+          },
+          {
+            label: 'Holiday',
+            childItems: [
+              {
+                label: 'Holiday',
+                href: '/holiday'
+              },
+              {
+                label: 'Holiday Type',
+                href: '/holiday-type'
+              }
+            ]
+          },
+          {
             label: 'Shift',
             href: '/shift'
+          },
+          {
+            label: 'Attendance Module Settings',
+            href: '/attendace-module'
           }
         ]
       },
