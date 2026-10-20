@@ -12,7 +12,7 @@ class MobileAttendanceReportController extends Controller
 {
     public function fingerprints(Request $request, $box_slug)
     {
-        if ($request->ajax() || $request->wantsJson()) {
+        if ($request->ajax()) {
             $box = Box::where('slug', $box_slug)->firstOrFail();
             
             $query = AttendanceFingerprint::select('attendance_fingerprints.*', 'users.name as user_name', 'device_registers.device_name')
@@ -59,7 +59,7 @@ class MobileAttendanceReportController extends Controller
 
     public function punches(Request $request, $box_slug)
     {
-        if ($request->ajax() || $request->wantsJson()) {
+        if ($request->ajax()) {
             $box = Box::where('slug', $box_slug)->firstOrFail();
             
             $query = AttendancePunch::select('attendance_punches.*', 'users.name as user_name', 'device_registers.device_name')

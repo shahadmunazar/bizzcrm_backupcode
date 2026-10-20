@@ -61,9 +61,11 @@
                                             <div class="dropdown-menu dropdown-menu-end">
                                                 <ul>
                                                     <li><a href="javascript:void(0);" class="dropdown-item scope-filter"
-                                                            data-scope="all">All Leads</a></li>
+                                                            data-scope="individual">My Leads</a></li>
                                                     <li><a href="javascript:void(0);" class="dropdown-item scope-filter"
                                                             data-scope="team">My Team Leads</a></li>
+                                                    <li><a href="javascript:void(0);" class="dropdown-item scope-filter"
+                                                            data-scope="all">All Leads</a></li>
                                                 </ul>
                                             </div>
                                         </div>
@@ -6205,12 +6207,14 @@
 
                     // Update display text
                     var displayText = 'All Leads';
-                    if (scope === 'all') {
+                    if (scope === 'individual') {
+                        displayText = 'My Leads';
                         window.selectedTeamMemberIds = [];
-                    }
-                    if (scope === 'team') {
+                    } else if (scope === 'team') {
                         displayText = 'My Team Leads';
                         fetchTeamMembers();
+                    } else if (scope === 'all') {
+                        window.selectedTeamMemberIds = [];
                     }
 
                     $('#scope-display').text(displayText);

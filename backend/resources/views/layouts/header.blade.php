@@ -1282,6 +1282,20 @@
     $name = $user->name ?? 'U';
     $initial = strtoupper(substr($name, 0, 1));
 @endphp
+            @php
+                if (!function_exists('getColorFromNameBlades')) {
+                    function getColorFromNameBlades($name) {
+                        $colors = [
+                            "#f44336", "#e91e63", "#9c27b0", "#673ab7", "#3f51b5",
+                            "#2196f3", "#03a9f4", "#00bcd4", "#009688", "#4caf50",
+                            "#8bc34a", "#cddc39", "#ffc107", "#ff9800", "#ff5722"
+                        ];
+                        $char = strtoupper(trim($name)[0] ?? 'A');
+                        $index = ord($char) % count($colors);
+                        return $colors[$index];
+                    }
+                }
+            @endphp
             <!-- Profile Dropdown -->
             <li class="nav-item dropdown has-arrow main-drop">
                 <a href="javascript:void(0);" class="nav-link userset" data-bs-toggle="dropdown">
@@ -1299,18 +1313,6 @@
                         <span class="badge badge-success rounded-pill"></span>
                     </span>
                 </a>
-                @php
-    function getColorFromNameBlades($name) {
-        $colors = [
-            "#f44336", "#e91e63", "#9c27b0", "#673ab7", "#3f51b5",
-            "#2196f3", "#03a9f4", "#00bcd4", "#009688", "#4caf50",
-            "#8bc34a", "#cddc39", "#ffc107", "#ff9800", "#ff5722"
-        ];
-        $char = strtoupper(trim($name)[0] ?? 'A');
-        $index = ord($char) % count($colors);
-        return $colors[$index];
-    }
-@endphp
 
 
                 <div class="dropdown-menu menu-drop-user">

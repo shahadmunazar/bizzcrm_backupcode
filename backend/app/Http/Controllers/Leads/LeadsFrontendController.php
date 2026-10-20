@@ -94,11 +94,11 @@ class LeadsFrontendController extends Controller
         $endDateStr = $request->get('end_date');
         $chartYear = $request->get('chart_year');
         
-        $cacheKey = "dashboard:{$boxUser->box_id}:{$userId}:{$startDateStr}:{$endDateStr}:{$chartYear}";
+        $cacheKey = "dashboard:{$boxUser->box_id}:{$startDateStr}:{$endDateStr}:{$chartYear}";
 
         $data = \Illuminate\Support\Facades\Cache::remember(
             $cacheKey,
-            now()->addSeconds(30),
+            now()->addMinutes(2),
             function () use ($boxUser, $userId, $startDateStr, $endDateStr, $chartYear) {
                 $service = app(\App\Services\DashboardService::class);
                 return $service->getDashboardData(
@@ -143,7 +143,7 @@ class LeadsFrontendController extends Controller
 
         $data = \Illuminate\Support\Facades\Cache::remember(
             $cacheKey,
-            now()->addSeconds(30),
+            now()->addMinutes(2),
             function () use ($boxUser, $userId, $startDateStr, $endDateStr, $chartYear, $targetUserId) {
                 $service = app(\App\Services\DashboardService::class);
                 return $service->getDashboardData(

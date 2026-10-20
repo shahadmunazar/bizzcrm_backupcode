@@ -23,7 +23,18 @@
     </a>
 
     <div class="header-user">
-        <ul class="nav user-menu">
+        <ul class="nav user-menu align-items-center">
+            @if(session()->has('impersonated_by'))
+                <li class="nav-item me-2 d-none d-sm-block">
+                    <div class="d-flex align-items-center bg-danger-subtle border border-danger-subtle text-danger px-3 py-1 rounded-pill small fw-semibold shadow-sm">
+                        <i class="ti ti-shield-lock me-1 fs-5"></i>
+                        <span>Impersonating Vendor</span>
+                        <a href="{{ route('vendor.leave_impersonation') }}" class="btn btn-xs btn-danger text-white rounded-pill ms-2 px-2 py-0 fw-bold">
+                            <i class="ti ti-arrow-back-up me-1"></i> Exit
+                        </a>
+                    </div>
+                </li>
+            @endif
             <li class="nav-item dropdown has-arrow main-drop">
                 <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
                     <span class="user-info">
@@ -49,6 +60,12 @@
                             </div>
                         </div>
                         <hr class="m-0">
+                        @if(session()->has('impersonated_by'))
+                            <a class="dropdown-item text-danger fw-bold bg-danger-subtle" href="{{ route('vendor.leave_impersonation') }}">
+                                <i class="ti ti-arrow-back-up me-2"></i> Exit Impersonation
+                            </a>
+                            <hr class="m-0">
+                        @endif
                         <a class="dropdown-item" href="{{ route('vendor.dashboard') }}">
                             <i class="ti ti-layout-dashboard me-2"></i> Dashboard
                         </a>

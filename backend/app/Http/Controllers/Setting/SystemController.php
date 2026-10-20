@@ -110,8 +110,18 @@ class SystemController extends Controller
                 ->orderBy('ordering')
                 ->get();
 
-            // Fetch Total Leads Count
-            $leadsCount = \App\Models\Lead::where('box_id', $boxUser->box_id)->count();
+            // Fetch Total Leads Count according to user scope
+            if (!$isGlobalAdmin && !$isBoxAdmin) {
+                $subordinateIds = BoxUser::getAllSubordinateIds($boxUser->box_id, $userId, $boxUser);
+                $subordinateUserIds = BoxUser::whereIn('id', $subordinateIds)->pluck('user_id')->toArray();
+                $allRelevantUserIds = array_merge([$userId], $subordinateUserIds);
+                $leadsCount = \App\Models\Lead::where('box_id', $boxUser->box_id)
+                    ->where('duplicate_leads', 0)
+                    ->whereIn('assigned_to', $allRelevantUserIds)
+                    ->count();
+            } else {
+                $leadsCount = \App\Models\Lead::where('box_id', $boxUser->box_id)->where('duplicate_leads', 0)->count();
+            }
 
             // Check for saved report
             $activeReport = null;

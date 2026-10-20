@@ -714,35 +714,21 @@ $(document).ready(function () {
                 });
             }
 
+            const SESSION_PING_URL = "{{ route('session.ping') }}";
+
             // Handle browser back/forward button navigation
             window.addEventListener('pageshow', function(event) {
                 try {
                     // Check if page was loaded from cache (back/forward button)
                     if (event.persisted) {
-                        // Try to verify session is still valid
                         if (typeof jQuery !== 'undefined') {
                             $.ajax({
-                                url: "{{ route('login') }}",
+                                url: SESSION_PING_URL,
                                 method: 'GET',
                                 cache: false,
-                                success: function(response) {
-                                    // If we can access login page, session might be expired
-                                    // Check if we're on a protected page
-                                    const protectedPaths = ['/dashboard', '/admin', '/superadmin', '/employee'];
-                                    const isProtectedPage = protectedPaths.some(path => currentPath.includes(path));
-
-                                    if (isProtectedPage) {
-                                        // Try to make a test request to verify session
-                                        $.ajax({
-                                            url: window.location.href,
-                                            method: 'GET',
-                                            cache: false,
-                                            error: function(xhr) {
-                                                if (xhr.status === 401 || xhr.status === 403) {
-                                                    handleSessionExpired();
-                                                }
-                                            }
-                                        });
+                                error: function(xhr) {
+                                    if (xhr.status === 401 || xhr.status === 403) {
+                                        handleSessionExpired();
                                     }
                                 }
                             });
@@ -750,25 +736,6 @@ $(document).ready(function () {
                     }
                 } catch (error) {
                     console.error('Error in pageshow handler:', error);
-                }
-            });
-
-            // Check session on page load
-            document.addEventListener('DOMContentLoaded', function() {
-                try {
-                    // Verify session is still valid by checking if we can access current page
-                    if (typeof jQuery !== 'undefined' && typeof fetch !== 'undefined') {
-                        // Use fetch to check session without triggering AJAX handlers
-                        fetch(window.location.href, {
-                            method: 'HEAD',
-                            cache: 'no-cache',
-                            credentials: 'same-origin'
-                        }).catch(function(error) {
-                            console.warn('Session check failed:', error);
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error in DOMContentLoaded session check:', error);
                 }
             });
 
@@ -782,18 +749,16 @@ $(document).ready(function () {
                     const currentTime = Date.now();
                     
                     if (!document.hidden && (currentTime - lastSessionCheckTime >= SESSION_CHECK_INTERVAL)) {
-                        // Page became visible and interval passed, check session
+                        // Page became visible and interval passed, check session via lightweight ping
                         if (typeof jQuery !== 'undefined') {
                             $.ajax({
-                                url: window.location.href,
+                                url: SESSION_PING_URL,
                                 method: 'HEAD',
                                 cache: false,
                                 success: function() {
-                                    // Update timestamp on successful check
                                     lastSessionCheckTime = Date.now();
                                 },
                                 error: function(xhr) {
-                                    // Update timestamp even on error to prevent spamming
                                     lastSessionCheckTime = Date.now();
                                     
                                     const reason = xhr.getResponseHeader('X-Logout-Reason');
@@ -811,17 +776,17 @@ $(document).ready(function () {
                 }
             });
 
-            // Check session on user interaction (clicks), max once per minute
+            // Check session on user interaction (clicks), max once per 3 minutes
             let lastClickCheckTime = Date.now();
             document.addEventListener('click', function() {
                 const currentTime = Date.now();
-                if (currentTime - lastClickCheckTime >= 60000) {
+                if (currentTime - lastClickCheckTime >= 180000) {
                     if (typeof jQuery !== 'undefined' && !document.hidden) {
                         $.ajax({
-                            url: window.location.href,
+                            url: SESSION_PING_URL,
                             method: 'HEAD',
                             cache: false,
-                            global: true, // this ensures it triggers the global ajaxError handler
+                            global: true, // triggers global ajaxError handler
                             success: function() {
                                 lastClickCheckTime = Date.now();
                             },

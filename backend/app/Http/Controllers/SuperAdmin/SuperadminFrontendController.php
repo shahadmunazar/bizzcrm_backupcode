@@ -2644,6 +2644,9 @@ class SuperadminFrontendController extends Controller
         }
         $subscription->save();
 
+        // Sync vendor commission status
+        \App\Models\VendorCommission::recordCommissionForSubscription($subscription);
+
         return response()->json([
             'success' => true,
             'message' => 'Subscription status updated successfully to ' . ucfirst($request->status) . '!'
@@ -2651,19 +2654,121 @@ class SuperadminFrontendController extends Controller
     }
     public function getCompaniesAndPlans(\Illuminate\Http\Request $request)
     {
+        $search = trim($request->input('search') ?? $request->input('q') ?? $request->input('term') ?? '');
+        $email = trim($request->input('email') ?? '');
+        $phone = trim($request->input('phone') ?? $request->input('mobile') ?? '');
+        $name = trim($request->input('name') ?? $request->input('company_name') ?? '');
+
+        $boxQuery = \App\Models\Box::with('superadmin')
+            ->orderBy('id', 'desc');
+
+        if (!empty($search)) {
+            $digitsSearch = preg_replace('/[^0-9]/', '', $search);
+            $boxQuery->where(function($q) use ($search, $digitsSearch) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('slug', 'LIKE', "%{$search}%")
+                  ->orWhere('contact_name', 'LIKE', "%{$search}%")
+                  ->orWhere('company_email', 'LIKE', "%{$search}%")
+                  ->orWhere('company_phone', 'LIKE', "%{$search}%")
+                  ->orWhere('phone', 'LIKE', "%{$search}%")
+                  ->orWhere('mobile', 'LIKE', "%{$search}%");
+
+                if (strlen($digitsSearch) >= 3) {
+                    $q->orWhere('phone', 'LIKE', "%{$digitsSearch}%")
+                      ->orWhere('mobile', 'LIKE', "%{$digitsSearch}%")
+                      ->orWhere('company_phone', 'LIKE', "%{$digitsSearch}%")
+                      ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(phone, ''), '-', ''), ' ', ''), '+', ''), '(', '') LIKE ?", ["%{$digitsSearch}%"])
+                      ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(mobile, ''), '-', ''), ' ', ''), '+', ''), '(', '') LIKE ?", ["%{$digitsSearch}%"])
+                      ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(company_phone, ''), '-', ''), ' ', ''), '+', ''), '(', '') LIKE ?", ["%{$digitsSearch}%"]);
+                }
+
+                $q->orWhereHas('superadmin', function($sq) use ($search, $digitsSearch) {
+                    $sq->where('name', 'LIKE', "%{$search}%")
+                       ->orWhere('email', 'LIKE', "%{$search}%")
+                       ->orWhere('mobile', 'LIKE', "%{$search}%");
+                    if (strlen($digitsSearch) >= 3) {
+                        $sq->orWhere('mobile', 'LIKE', "%{$digitsSearch}%")
+                           ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(mobile, ''), '-', ''), ' ', ''), '+', ''), '(', '') LIKE ?", ["%{$digitsSearch}%"]);
+                    }
+                });
+            });
+        }
+
+        if (!empty($email)) {
+            $boxQuery->where(function($q) use ($email) {
+                $q->where('company_email', 'LIKE', "%{$email}%")
+                  ->orWhereHas('superadmin', function($sq) use ($email) {
+                      $sq->where('email', 'LIKE', "%{$email}%");
+                  });
+            });
+        }
+
+        if (!empty($phone)) {
+            $digitsPhone = preg_replace('/[^0-9]/', '', $phone);
+            $boxQuery->where(function($q) use ($phone, $digitsPhone) {
+                $q->where('phone', 'LIKE', "%{$phone}%")
+                  ->orWhere('mobile', 'LIKE', "%{$phone}%")
+                  ->orWhere('company_phone', 'LIKE', "%{$phone}%");
+                if (strlen($digitsPhone) >= 3) {
+                    $q->orWhere('phone', 'LIKE', "%{$digitsPhone}%")
+                      ->orWhere('mobile', 'LIKE', "%{$digitsPhone}%")
+                      ->orWhere('company_phone', 'LIKE', "%{$digitsPhone}%")
+                      ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(phone, ''), '-', ''), ' ', ''), '+', ''), '(', '') LIKE ?", ["%{$digitsPhone}%"])
+                      ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(mobile, ''), '-', ''), ' ', ''), '+', ''), '(', '') LIKE ?", ["%{$digitsPhone}%"])
+                      ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(company_phone, ''), '-', ''), ' ', ''), '+', ''), '(', '') LIKE ?", ["%{$digitsPhone}%"]);
+                }
+                $q->orWhereHas('superadmin', function($sq) use ($phone, $digitsPhone) {
+                    $sq->where('mobile', 'LIKE', "%{$phone}%");
+                    if (strlen($digitsPhone) >= 3) {
+                        $sq->orWhere('mobile', 'LIKE', "%{$digitsPhone}%")
+                           ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(mobile, ''), '-', ''), ' ', ''), '+', ''), '(', '') LIKE ?", ["%{$digitsPhone}%"]);
+                    }
+                });
+            });
+        }
+
+        if (!empty($name)) {
+            $boxQuery->where(function($q) use ($name) {
+                $q->where('name', 'LIKE', "%{$name}%")
+                  ->orWhere('slug', 'LIKE', "%{$name}%")
+                  ->orWhere('contact_name', 'LIKE', "%{$name}%")
+                  ->orWhereHas('superadmin', function($sq) use ($name) {
+                      $sq->where('name', 'LIKE', "%{$name}%");
+                  });
+            });
+        }
+
         $latestSubs = \App\Models\UserSubscription::where('status', 'active')
             ->orderBy('ends_at', 'desc')
             ->get()
             ->groupBy('box_id');
 
-        $boxes = \App\Models\Box::with('superadmin')->get()->map(function($box) use ($latestSubs) {
+        $boxes = $boxQuery->get()->map(function($box) use ($latestSubs) {
             $subs = $latestSubs->get($box->id);
             $lastSub = $subs ? $subs->first() : null;
             $lastEndsAt = ($lastSub && $lastSub->ends_at && $lastSub->ends_at->isFuture()) ? $lastSub->ends_at->addDay()->format('Y-m-d') : null;
 
+            $adminName = $box->superadmin->name ?? ($box->contact_name ?? 'Unknown');
+            $adminEmail = $box->superadmin->email ?? ($box->company_email ?? '');
+            $adminPhone = $box->superadmin->mobile ?? ($box->mobile ?? ($box->phone ?? ($box->company_phone ?? '')));
+
+            $displayName = $box->name . ' (' . ($box->slug ?? 'N/A') . ') - ' . $adminName;
+            if ($adminEmail) {
+                $displayName .= ' | ' . $adminEmail;
+            }
+            if ($adminPhone) {
+                $displayName .= ' | ' . $adminPhone;
+            }
+
             return [
                 'id' => $box->id,
-                'name' => $box->name . ' (' . ($box->slug ?? 'N/A') . ') - ' . ($box->superadmin->name ?? 'Unknown'),
+                'name' => $displayName,
+                'text' => $displayName,
+                'company_name' => $box->name,
+                'slug' => $box->slug,
+                'admin_name' => $adminName,
+                'email' => $adminEmail,
+                'phone' => $adminPhone,
                 'last_active_end_date' => $lastEndsAt
             ];
         });
@@ -2679,11 +2784,12 @@ class SuperadminFrontendController extends Controller
         return response()->json([
             'success' => true,
             'boxes' => $boxes,
+            'results' => $boxes,
             'plans' => $plans
         ]);
     }
 
-    public function assignOfflinePlan(\Illuminate\Http\Request $request)
+    public function assignOfflinePlan(\Illuminate\Http\Request $request, $box_slug = null)
     {
         $request->validate([
             'box_id' => 'required|exists:boxes,id',
@@ -2693,57 +2799,46 @@ class SuperadminFrontendController extends Controller
             'status' => 'required|in:active,inactive,cancelled,expired,authenticated,overdue'
         ]);
 
-        $box = \App\Models\Box::findOrFail($request->box_id);
-        $plan = \App\Models\Plan::findOrFail($request->plan_id);
+        try {
+            $box = \App\Models\Box::findOrFail($request->box_id);
+            $plan = \App\Models\Plan::findOrFail($request->plan_id);
 
-        $startsAt = \Carbon\Carbon::parse($request->starts_at)->startOfDay();
-        $endsAt = \Carbon\Carbon::parse($request->ends_at)->endOfDay();
+            $startsAt = \Carbon\Carbon::parse($request->starts_at)->startOfDay();
+            $endsAt = \Carbon\Carbon::parse($request->ends_at)->endOfDay();
 
-        $userId = $box->superadmin_id ?? \Illuminate\Support\Facades\Auth::id();
-        $boxUserId = \App\Models\BoxUser::where('box_id', $box->id)->where('user_id', $userId)->value('id');
-
-        $subscription = new \App\Models\UserSubscription([
-            'user_id' => $userId,
-            'box_id' => $box->id,
-            'box_user_id' => $boxUserId,
-            'plan_id' => $plan->id,
-            'status' => $request->status,
-            'starts_at' => $startsAt,
-            'ends_at' => $endsAt,
-            'next_billing_at' => $endsAt,
-            'payment_method' => 'Offline'
-        ]);
-        
-        $subscription->save();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Offline plan assigned successfully!'
-        ]);
-    }
-    public function bulkAssignOfflinePlan(\Illuminate\Http\Request $request)
-    {
-        $request->validate([
-            'plan_id' => 'required|exists:plans,id',
-            'status' => 'required|in:active,inactive,cancelled,expired,authenticated,overdue'
-        ]);
-
-        $plan = \App\Models\Plan::findOrFail($request->plan_id);
-        $boxes = \App\Models\Box::all();
-
-        $successCount = 0;
-        foreach ($boxes as $box) {
-            // If box has start_date and end_date, use them; otherwise, set start from today and end next month (1 month)
-            if (!empty($box->start_date) && !empty($box->end_date)) {
-                $startsAt = \Carbon\Carbon::parse($box->start_date)->startOfDay();
-                $endsAt = \Carbon\Carbon::parse($box->end_date)->endOfDay();
+            // Determine valid User ID
+            $userId = null;
+            if (!empty($box->superadmin_id) && \App\Models\User::where('id', $box->superadmin_id)->exists()) {
+                $userId = $box->superadmin_id;
+            } elseif (\Illuminate\Support\Facades\Auth::check() && \App\Models\User::where('id', \Illuminate\Support\Facades\Auth::id())->exists()) {
+                $userId = \Illuminate\Support\Facades\Auth::id();
             } else {
-                $startsAt = \Carbon\Carbon::now()->startOfDay();
-                $endsAt = \Carbon\Carbon::now()->addMonth()->endOfDay();
+                $existingBoxUser = \App\Models\BoxUser::where('box_id', $box->id)->whereHas('user')->first();
+                if ($existingBoxUser) {
+                    $userId = $existingBoxUser->user_id;
+                } else {
+                    $firstAdmin = \App\Models\User::where('role', 'superadmin')->orWhere('role', 'admin')->first()
+                        ?? \App\Models\User::first();
+                    $userId = $firstAdmin?->id;
+                }
             }
-            
-            $userId = $box->superadmin_id ?? \Illuminate\Support\Facades\Auth::id();
+
+            if (!$userId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unable to find a valid user to associate with this company subscription.'
+                ], 422);
+            }
+
+            // Ensure BoxUser entry exists to satisfy foreign key constraints
             $boxUserId = \App\Models\BoxUser::where('box_id', $box->id)->where('user_id', $userId)->value('id');
+            if (!$boxUserId) {
+                $newBoxUser = \App\Models\BoxUser::firstOrCreate(
+                    ['box_id' => $box->id, 'user_id' => $userId],
+                    ['role_id' => 1, 'status' => 'active']
+                );
+                $boxUserId = $newBoxUser->id;
+            }
 
             $subscription = new \App\Models\UserSubscription([
                 'user_id' => $userId,
@@ -2758,12 +2853,127 @@ class SuperadminFrontendController extends Controller
             ]);
             
             $subscription->save();
-            $successCount++;
-        }
 
-        return response()->json([
-            'success' => true,
-            'message' => "Offline plan bulk assigned successfully to {$successCount} companies!"
+            // Automatically record vendor commission if box has a referral (safe, won't break assignment)
+            try {
+                if (class_exists(\App\Models\VendorCommission::class)) {
+                    \App\Models\VendorCommission::recordCommissionForSubscription($subscription);
+                }
+            } catch (\Throwable $ve) {
+                \Illuminate\Support\Facades\Log::warning('Vendor commission assignment warning: ' . $ve->getMessage());
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Offline plan assigned successfully!'
+            ]);
+
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Assign offline plan error: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Server Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function bulkAssignOfflinePlan(\Illuminate\Http\Request $request, $box_slug = null)
+    {
+        $request->validate([
+            'plan_id' => 'required|exists:plans,id',
+            'status' => 'required|in:active,inactive,cancelled,expired,authenticated,overdue'
         ]);
+
+        try {
+            $plan = \App\Models\Plan::findOrFail($request->plan_id);
+            $boxes = \App\Models\Box::all();
+
+            $successCount = 0;
+            foreach ($boxes as $box) {
+                if (!empty($box->start_date) && !empty($box->end_date)) {
+                    $startsAt = \Carbon\Carbon::parse($box->start_date)->startOfDay();
+                    $endsAt = \Carbon\Carbon::parse($box->end_date)->endOfDay();
+                } else {
+                    $startsAt = \Carbon\Carbon::now()->startOfDay();
+                    $endsAt = \Carbon\Carbon::now()->addMonth()->endOfDay();
+                }
+                
+                $userId = null;
+                if (!empty($box->superadmin_id) && \App\Models\User::where('id', $box->superadmin_id)->exists()) {
+                    $userId = $box->superadmin_id;
+                } elseif (\Illuminate\Support\Facades\Auth::check() && \App\Models\User::where('id', \Illuminate\Support\Facades\Auth::id())->exists()) {
+                    $userId = \Illuminate\Support\Facades\Auth::id();
+                } else {
+                    $existingBoxUser = \App\Models\BoxUser::where('box_id', $box->id)->whereHas('user')->first();
+                    if ($existingBoxUser) {
+                        $userId = $existingBoxUser->user_id;
+                    } else {
+                        $firstAdmin = \App\Models\User::where('role', 'superadmin')->orWhere('role', 'admin')->first()
+                            ?? \App\Models\User::first();
+                        $userId = $firstAdmin?->id;
+                    }
+                }
+
+                if (!$userId) {
+                    continue;
+                }
+
+                $boxUserId = \App\Models\BoxUser::where('box_id', $box->id)->where('user_id', $userId)->value('id');
+                if (!$boxUserId) {
+                    $newBoxUser = \App\Models\BoxUser::firstOrCreate(
+                        ['box_id' => $box->id, 'user_id' => $userId],
+                        ['role_id' => 1, 'status' => 'active']
+                    );
+                    $boxUserId = $newBoxUser->id;
+                }
+
+                $subscription = new \App\Models\UserSubscription([
+                    'user_id' => $userId,
+                    'box_id' => $box->id,
+                    'box_user_id' => $boxUserId,
+                    'plan_id' => $plan->id,
+                    'status' => $request->status,
+                    'starts_at' => $startsAt,
+                    'ends_at' => $endsAt,
+                    'next_billing_at' => $endsAt,
+                    'payment_method' => 'Offline'
+                ]);
+                
+                $subscription->save();
+
+                try {
+                    if (class_exists(\App\Models\VendorCommission::class)) {
+                        \App\Models\VendorCommission::recordCommissionForSubscription($subscription);
+                    }
+                } catch (\Throwable $ve) {
+                    \Illuminate\Support\Facades\Log::warning('Bulk vendor commission assignment warning: ' . $ve->getMessage());
+                }
+
+                $successCount++;
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "Offline plan bulk assigned successfully to {$successCount} companies!"
+            ]);
+
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Bulk assign offline plan error: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Server Error: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

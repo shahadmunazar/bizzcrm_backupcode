@@ -230,28 +230,32 @@ class BoxUser extends Model implements AuditableContract
     public static function getAllSubordinateIds($boxId, $userId, $boxUser)
     {
         $allIds = [];
-        self::getRecursiveSubordinates($boxId, $boxUser->id, $allIds);
+        if ($boxUser && isset($boxUser->id)) {
+            self::getRecursiveSubordinates($boxId, $boxUser->id, $allIds);
+        }
 
         // Also check if the user is a team leader or department leader and include those users
         $departmentIds = Department::where('user_id', $userId)->pluck('id')->toArray();
         $teamIds = Team::where('user_id', $userId)->pluck('id')->toArray();
 
-        $additionalSubordinates = self::where('box_id', $boxId)
-            ->where(function ($q) use ($departmentIds, $teamIds) {
-                if (!empty($departmentIds)) {
-                    $q->orWhereIn('department', $departmentIds);
-                }
-                if (!empty($teamIds)) {
-                    $q->orWhereIn('designation', $teamIds);
-                }
-            })
-            ->pluck('id')
-            ->toArray();
+        if (!empty($departmentIds) || !empty($teamIds)) {
+            $additionalSubordinates = self::where('box_id', $boxId)
+                ->where(function ($q) use ($departmentIds, $teamIds) {
+                    if (!empty($departmentIds)) {
+                        $q->orWhereIn('department', $departmentIds);
+                    }
+                    if (!empty($teamIds)) {
+                        $q->orWhereIn('designation', $teamIds);
+                    }
+                })
+                ->pluck('id')
+                ->toArray();
 
-        foreach ($additionalSubordinates as $subId) {
-            if (!in_array($subId, $allIds)) {
-                $allIds[] = $subId;
-                self::getRecursiveSubordinates($boxId, $subId, $allIds);
+            foreach ($additionalSubordinates as $subId) {
+                if (!in_array($subId, $allIds)) {
+                    $allIds[] = $subId;
+                    self::getRecursiveSubordinates($boxId, $subId, $allIds);
+                }
             }
         }
 

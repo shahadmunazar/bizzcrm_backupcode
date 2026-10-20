@@ -91,44 +91,78 @@
                                 <h4 class="mb-2 fs-20">Register</h4>
                                 <p>Create new CRMS account</p>
                             </div>
+
+                            @if(isset($referringVendor) && $referringVendor)
+                                <div class="alert alert-success border-0 shadow-sm p-3 mb-4 rounded-3" id="invitationHeroBanner" style="background: #ecfdf5; border-left: 4px solid #10b981 !important;">
+                                    <div class="d-flex align-items-center">
+                                        <div class="rounded-circle bg-success text-white p-2 me-3 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; min-width: 44px;">
+                                            <i class="ti ti-gift fs-20"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="fw-bold text-success fs-14">
+                                                Official Partner Referral Invitation
+                                            </div>
+                                            <div class="small text-dark mt-1">
+                                                Invited by: <strong>{{ $referringVendor->company_name ?: ($referringVendor->user->name ?? 'Vendor Partner') }}</strong>
+                                                @if($referringVendor->user && $referringVendor->user->name && $referringVendor->company_name)
+                                                    <span class="text-muted">({{ $referringVendor->user->name }})</span>
+                                                @endif
+                                            </div>
+                                            <div class="small text-muted mt-1">
+                                                Referral Code: <span class="badge bg-white text-dark font-monospace border px-2 py-1">{{ $referringVendor->referral_code }}</span>
+                                                @if($email ?? request('email'))
+                                                    <span class="ms-2">Invited Email: <strong class="text-dark">{{ $email ?? request('email') }}</strong></span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 pt-2 border-top border-success-subtle small text-success-emphasis">
+                                        <i class="ti ti-check-circle me-1"></i> Registering via this referral connects your company account with <strong>{{ $referringVendor->company_name ?: ($referringVendor->user->name ?? 'our partner network') }}</strong>.
+                                    </div>
+                                </div>
+                            @endif
+
                             <div class="mb-3">
-                                <label class="col-form-label">Name</label>
+                                <label class="col-form-label">Name <span class="text-danger">*</span></label>
                                 <div class="position-relative">
                                     <span class="input-icon-addon">
                                         <i class="ti ti-user"></i>
                                     </span>
-                                    <input type="text" value="" name="name" class="form-control">
+                                    <input type="text" value="{{ old('name', request('name')) }}" name="name" class="form-control" placeholder="Enter your full name" required>
                                 </div>
                             </div>
                             <div class="mb-3">
-                                <label class="col-form-label">Email Address</label>
+                                <label class="col-form-label">Email Address <span class="text-danger">*</span></label>
                                 <div class="position-relative">
                                     <span class="input-icon-addon">
                                         <i class="ti ti-mail"></i>
                                     </span>
-                                    <input type="text" value="" name="email" class="form-control">
+                                    <input type="email" value="{{ old('email', $email ?? request('email')) }}" name="email" id="emailInput" class="form-control" placeholder="Enter your email address" required>
                                 </div>
+                                <small id="emailPreFillNotice" class="text-success mt-1 fw-semibold" style="{{ ($email ?? request('email')) ? '' : 'display:none;' }}">
+                                    <i class="ti ti-circle-check me-1"></i> Email address pre-filled from your invitation.
+                                </small>
                             </div>
                             <div class="mb-3">
-                                <label class="col-form-label">Phone No.</label>
+                                <label class="col-form-label">Phone No. <span class="text-danger">*</span></label>
                                 <div class="position-relative">
                                     <span class="input-icon-addon">
                                         <i class="ti ti-phone"></i>
                                     </span>
-                                    <input type="text" value="" name="phone" class="form-control">
+                                    <input type="text" value="{{ old('phone', request('phone')) }}" name="phone" class="form-control" placeholder="Enter mobile number" required>
                                 </div>
                             </div>
                             <div class="mb-3">
-                                <label class="col-form-label">Company Name</label>
+                                <label class="col-form-label">Company Name <span class="text-danger">*</span></label>
                                 <div class="position-relative">
                                     <span class="input-icon-addon">
                                         <i class="ti ti-building"></i>
                                     </span>
-                                    <input type="text" value="" name="company_name" class="form-control">
+                                    <input type="text" value="{{ old('company_name', request('company')) }}" name="company_name" class="form-control" placeholder="Enter company name" required>
                                 </div>
                             </div>
                             <div class="mb-3">
-                                <label class="col-form-label">Industry</label>
+                                <label class="col-form-label">Industry <span class="text-danger">*</span></label>
                                 <div class="position-relative">
                                     <select class="form-control" name="industry" required>
                                         <option value="">Select Industry</option>
@@ -144,7 +178,16 @@
                                     <span class="input-icon-addon">
                                         <i class="ti ti-gift"></i>
                                     </span>
-                                    <input type="text" value="{{ request('ref') }}" name="referral_code" class="form-control" placeholder="Enter referral code if you have one">
+                                    <input type="text" value="{{ old('referral_code', request('ref')) }}" id="referralCodeInput" name="referral_code" class="form-control" placeholder="Enter referral code if you have one">
+                                </div>
+                                <div id="vendorRefBadge" class="alert alert-info py-2 px-3 mt-2 small" style="{{ (isset($referringVendor) && $referringVendor) || request('ref') ? '' : 'display:none;' }}">
+                                    <div id="vendorRefBadgeContent">
+                                        @if(isset($referringVendor) && $referringVendor)
+                                            <i class="ti ti-circle-check text-success me-1"></i> Verified Referral Partner: <strong>{{ $referringVendor->company_name ?: ($referringVendor->user->name ?? 'Vendor Partner') }}</strong> (Contact: {{ $referringVendor->user->name ?? 'N/A' }}).
+                                        @else
+                                            <i class="ti ti-info-circle me-1"></i> <strong>Partner Referral:</strong> Registering with a valid code connects your account to our partner network.
+                                        @endif
+                                    </div>
                                 </div>
                             </div>
 
@@ -188,7 +231,7 @@
                                     <span class="input-icon-addon">
                                         <i class="ti ti-building"></i>
                                     </span>
-                                    <input type="text" value="" name="pincode" class="form-control">
+                                    <input type="text" value="{{ old('pincode') }}" id="pincodeInput" name="pincode" class="form-control" placeholder="Enter pin code">
                                 </div>
                             </div>
 
@@ -198,24 +241,10 @@
                                     <span class="input-icon-addon">
                                         <i class="ti ti-map"></i>
                                     </span>
-                                    <input type="text" value="" name="address" class="form-control">
+                                    <input type="text" value="{{ old('address') }}" id="addressInput" name="address" class="form-control" placeholder="Enter complete address">
                                 </div>
                             </div>
 
-                            <!-- <div class="mb-3">
-                                <label class="col-form-label">Password</label>
-                                <div class="pass-group">
-                                    <input type="password" class="pass-input form-control">
-                                    <span class="ti toggle-password ti-eye-off"></span>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="col-form-label">Confirm Password</label>
-                                <div class="pass-group">
-                                    <input type="password" class="pass-inputs form-control">
-                                    <span class="ti toggle-passwords ti-eye-off"></span>
-                                </div>
-                            </div> -->
                             <div class="d-flex align-items-center justify-content-between mb-3">
                                 <div class="form-check form-check-md d-flex align-items-center">
                                     <input class="form-check-input" type="checkbox" value="" id="checkebox-md"
@@ -273,21 +302,21 @@
                     <div id="registrationSuccess" class="mx-auto mw-450 text-center" style="display: none;">
                         <div class="mb-4">
                             <img src="assets/img/logo.png" class="img-fluid mb-4" alt="Logo">
-                            <div class="mb-4">
-                                <i class="ti ti-circle-check-filled text-success" style="font-size: 80px;"></i>
+                            <div class="mb-3">
+                                <i class="ti ti-circle-check-filled text-success" style="font-size: 72px;"></i>
                             </div>
-                            <h4 class="mb-3 fs-24">Thank you for registering!</h4>
-                            <div class="card bg-light border-0">
-                                <div class="card-body">
-                                    <p class="text-dark mb-4 fs-16">
+                            <h4 class="mb-2 fs-22" id="regSuccessTitle">Thank you for registering!</h4>
+                            <div class="card bg-light border-0 shadow-sm">
+                                <div class="card-body p-4">
+                                    <p class="text-dark mb-3 fs-15" id="regSuccessMessage">
                                         Your account has been created successfully.<br>
                                         Your login details have been sent to your registered email address.
                                     </p>
-                                    <p class="text-muted mb-4">
-                                        Please verify your email by clicking the <strong>"Verify Email"</strong> button sent to your inbox.<br>
-                                        Once verified, you will be automatically logged in and can start using your account.
+                                    <p class="text-muted mb-4 small" id="regSuccessInstructions">
+                                        Please verify your email by clicking the <strong>"Verify Email"</strong> button sent to your inbox.
                                     </p>
-                                    <a href="{{ url('login') }}" class="btn btn-primary w-100">Go to Login</a>
+                                    <a href="{{ url('login') }}" id="regSuccessBtn" class="btn btn-primary w-100 mb-2">Go to Login</a>
+                                    <span id="regSuccessRedirectNotice" class="text-muted small d-block" style="display:none;">Redirecting to Login in <span id="countdownSecs">5</span> seconds...</span>
                                 </div>
                             </div>
                         </div>
@@ -376,6 +405,51 @@
             width: '100%'
         });
 
+        let refCheckTimeout;
+        function checkReferralCodeVal(code) {
+            code = code ? code.trim() : '';
+            if (code.length === 0) {
+                $('#vendorRefBadge').slideUp(200);
+                return;
+            }
+            $.get("{{ route('check.referral') }}", { code: code }, function(res) {
+                if (res.valid) {
+                    $('#vendorRefBadgeContent').html(
+                        `<i class="ti ti-circle-check text-success me-1"></i> Verified Partner: <strong>${res.vendor.company_name}</strong> (${res.vendor.contact_name}). An official Vendor Partner account will be registered under their network.`
+                    );
+                    $('#vendorRefBadge').removeClass('alert-warning alert-danger alert-info').addClass('alert-success').slideDown(200);
+
+                    // Auto-fill email if returned from invitation and email field is empty
+                    if (res.vendor.email && !$('#emailInput').val()) {
+                        $('#emailInput').val(res.vendor.email);
+                        $('#emailPreFillNotice').slideDown(200);
+                    }
+                } else {
+                    $('#vendorRefBadgeContent').html(
+                        `<i class="ti ti-alert-triangle text-danger me-1"></i> ${res.message || 'The referral code is invalid or the referring vendor is inactive.'}`
+                    );
+                    $('#vendorRefBadge').removeClass('alert-success alert-info').addClass('alert-warning').slideDown(200);
+                }
+            }).fail(function() {
+                $('#vendorRefBadgeContent').html('<i class="ti ti-info-circle me-1"></i> <strong>Vendor Referral:</strong> Registering with a vendor code will create an official <strong>Vendor Partner</strong> account.');
+                $('#vendorRefBadge').removeClass('alert-warning alert-danger alert-success').addClass('alert-info').slideDown(200);
+            });
+        }
+
+        $('#referralCodeInput').on('input', function() {
+            clearTimeout(refCheckTimeout);
+            const val = $(this).val();
+            refCheckTimeout = setTimeout(function() {
+                checkReferralCodeVal(val);
+            }, 300);
+        });
+
+        // Verify on page load if referral code is already present
+        const initialRefCode = $('#referralCodeInput').val();
+        if (initialRefCode && initialRefCode.trim().length > 0) {
+            checkReferralCodeVal(initialRefCode);
+        }
+
         function showToast(message, type = 'success') {
             const $toast = $('#dynamicToast');
             const $message = $('#dynamicToastMessage');
@@ -387,7 +461,7 @@
 
         function populateSelect($select, data, placeholder = 'Select') {
             $select.empty().append(`<option value="">${placeholder}</option>`);
-            if (!data.length) {
+            if (!data || !data.length) {
                 $select.append('<option disabled>No data found</option>');
                 return;
             }
@@ -450,10 +524,27 @@
                 data: formData,
                 success: function(response) {
                     if (response.success) {
+                        const redirectUrl = response.redirect || "{{ route('login') }}";
+                        $('#regSuccessTitle').text('Thank you for registering!');
+                        $('#regSuccessMessage').html('Your account has been created successfully.<br>Your login details have been sent to your registered email address.');
+                        $('#regSuccessInstructions').html('Please verify your email by clicking the <strong>"Verify Email"</strong> link sent to your inbox. After verification, you will be able to log in to your account.');
+                        $('#regSuccessBtn').attr('href', redirectUrl).text('Go to Login');
+                        $('#regSuccessRedirectNotice').html('Redirecting to Login in <span id="countdownSecs">5</span> seconds...').show();
+
+                        let count = 5;
+                        const timer = setInterval(function() {
+                            count--;
+                            $('#countdownSecs').text(count);
+                            if (count <= 0) {
+                                clearInterval(timer);
+                                window.location.href = redirectUrl;
+                            }
+                        }, 1000);
+
                         $('#registerForm').fadeOut(300, function() {
                             $('#registrationSuccess').fadeIn(300);
                         });
-                        showToast('Thank you for registering!', 'success');
+                        showToast(response.message || 'Registration completed successfully!', 'success');
                     } else {
                         showToast(response.message || "Something went wrong.", 'error');
                     }

@@ -117,77 +117,81 @@ class DashboardService
     }
 
     /**
-     * Consolidated query for Lead KPIs.
+     * Consolidated query for Lead KPIs using targeted indexed counts.
      */
     private function getKpis(int $boxId, array $dates, array $referenceData, ?int $filterUserId = null): array
     {
-        $lostStatusIdsString = implode(',', $referenceData['lostStatusIds'] ?: [0]);
+        $lostStatusIds = $referenceData['lostStatusIds'] ?: [];
 
-        $query = Lead::where('box_id', $boxId);
+        $baseQuery = Lead::where('box_id', $boxId);
         if ($filterUserId) {
-            $query->where('assigned_to', $filterUserId);
+            $baseQuery->where('assigned_to', $filterUserId);
         }
 
-        $leadStats = $query->selectRaw("
-                COUNT(*) as total_leads,
-                
-                SUM(created_at <= ?) as total_leads_last_period,
+        // 1. Total leads (uses index)
+        $totalLeads = (clone $baseQuery)->count();
 
-                SUM(created_at BETWEEN ? AND ?) as new_leads_this_period,
-                SUM(created_at BETWEEN ? AND ?) as new_leads_last_period,
+        // 2. New leads this period (uses leads_box_del_created_idx)
+        $newLeads = (clone $baseQuery)
+            ->whereBetween('created_at', [$dates['periodStart'], $dates['periodEnd']])
+            ->count();
 
-                SUM(
-                    lead_status_id IN ($lostStatusIdsString) 
-                    AND updated_at BETWEEN ? AND ?
-                ) as lost_leads_this_period,
+        // 3. New leads last period (uses leads_box_del_created_idx)
+        $newLeadsLastPeriod = (clone $baseQuery)
+            ->whereBetween('created_at', [$dates['previousPeriodStart'], $dates['previousPeriodEnd']])
+            ->count();
 
-                SUM(
-                    lead_status_id IN ($lostStatusIdsString) 
-                    AND updated_at BETWEEN ? AND ?
-                ) as lost_leads_last_period,
+        // Total leads at end of last period (total - leads created after last period)
+        $leadsAfterLastPeriod = (clone $baseQuery)
+            ->where('created_at', '>', $dates['previousPeriodEnd'])
+            ->count();
+        $totalLeadsLastWeek = max(0, $totalLeads - $leadsAfterLastPeriod);
 
-                SUM(assigned_to IS NULL AND duplicate_leads = 0) as unassigned_leads,
-                
-                SUM(duplicate_leads = 1) as duplicate_leads
-            ", [
-                $dates['previousPeriodEnd'],
-                
-                $dates['periodStart'], $dates['periodEnd'],
-                $dates['previousPeriodStart'], $dates['previousPeriodEnd'],
+        // 4. Lost leads
+        $lostLeadsThisPeriod = 0;
+        $lostLeadsLastPeriod = 0;
+        if (!empty($lostStatusIds)) {
+            $lostLeadsThisPeriod = (clone $baseQuery)
+                ->whereIn('lead_status_id', $lostStatusIds)
+                ->whereBetween('updated_at', [$dates['periodStart'], $dates['periodEnd']])
+                ->count();
 
-                $dates['periodStart'], $dates['periodEnd'],
-                $dates['previousPeriodStart'], $dates['previousPeriodEnd'],
-            ])
-            ->first();
+            $lostLeadsLastPeriod = (clone $baseQuery)
+                ->whereIn('lead_status_id', $lostStatusIds)
+                ->whereBetween('updated_at', [$dates['previousPeriodStart'], $dates['previousPeriodEnd']])
+                ->count();
+        }
 
-        // Trash leads query (needs soft deleted)
+        // 5. Unassigned leads (uses leads_box_del_assigned_idx)
+        $unassignedLeads = (clone $baseQuery)
+            ->whereNull('assigned_to')
+            ->where('duplicate_leads', 0)
+            ->count();
+
+        // 6. Duplicate leads (uses leads_box_del_duplicate_idx)
+        $duplicateLeads = (clone $baseQuery)
+            ->where('duplicate_leads', 1)
+            ->count();
+
+        // 7. Trash leads query (needs soft deleted)
         $trashQuery = Lead::where('box_id', $boxId)->onlyTrashed();
         if ($filterUserId) {
             $trashQuery->where('assigned_to', $filterUserId);
         }
         $trashLeads = $trashQuery->count();
 
-        $totalLeads = (int) $leadStats->total_leads;
-        $totalLeadsLastWeek = (int) $leadStats->total_leads_last_period;
-        
-        $newLeads = (int) $leadStats->new_leads_this_period;
-        $newLeadsLastWeek = (int) $leadStats->new_leads_last_period;
-        
-        $lostLeads = (int) $leadStats->lost_leads_this_period;
-        $lostLeadsLastWeek = (int) $leadStats->lost_leads_last_period;
-
         return [
             'totalLeads'         => $totalLeads,
             'totalLeadsChange'   => $this->calculatePercentageChange($totalLeads, $totalLeadsLastWeek),
             
             'newLeads'           => $newLeads,
-            'newLeadsChange'     => $this->calculatePercentageChange($newLeads, $newLeadsLastWeek),
+            'newLeadsChange'     => $this->calculatePercentageChange($newLeads, $newLeadsLastPeriod),
             
-            'lostLeads'          => $lostLeads,
-            'lostLeadsChange'    => $this->calculatePercentageChange($lostLeads, $lostLeadsLastWeek),
+            'lostLeads'          => $lostLeadsThisPeriod,
+            'lostLeadsChange'    => $this->calculatePercentageChange($lostLeadsThisPeriod, $lostLeadsLastPeriod),
             
-            'unassignedLeads'    => (int) $leadStats->unassigned_leads,
-            'duplicateLeads'     => (int) $leadStats->duplicate_leads,
+            'unassignedLeads'    => $unassignedLeads,
+            'duplicateLeads'     => $duplicateLeads,
             'trashLeads'         => $trashLeads,
         ];
     }
@@ -204,14 +208,21 @@ class DashboardService
             $lastTaskCalcTime .= ':00';
         }
 
-        // Fast counts without scanning `type` over millions of rows
         $totalActivitiesQuery = Activity::where('box_id', $boxId);
         if ($filterUserId) $totalActivitiesQuery->where('assigned_to', $filterUserId);
-        $totalActivities = $totalActivitiesQuery->count();
 
-        $totalActivitiesLastWeekQuery = Activity::where('box_id', $boxId)->where('created_at', '<=', $dates['previousPeriodEnd']);
-        if ($filterUserId) $totalActivitiesLastWeekQuery->where('assigned_to', $filterUserId);
-        $totalActivitiesLastWeek = $totalActivitiesLastWeekQuery->count();
+        // Cache total activities for 2 minutes to prevent scanning ~1M rows repeatedly
+        $totalActivities = Cache::remember(
+            "box:{$boxId}:total_activities" . ($filterUserId ? ":{$filterUserId}" : ""),
+            now()->addMinutes(2),
+            fn() => (clone $totalActivitiesQuery)->count()
+        );
+
+        // Fast calculation: total minus activities created after previousPeriodEnd
+        $activitiesAfterLastPeriod = (clone $totalActivitiesQuery)
+            ->where('created_at', '>', $dates['previousPeriodEnd'])
+            ->count();
+        $totalActivitiesLastWeek = max(0, $totalActivities - $activitiesAfterLastPeriod);
 
         $periodStart = clone $dates['periodStart'];
         $periodEnd = clone $dates['periodEnd'];
@@ -301,14 +312,20 @@ class DashboardService
                 ];
             });
 
-        // 2. Lead Status Data (All-time counts)
-        $statusCountsQuery = Lead::where('box_id', $boxId)
-            ->whereNotNull('lead_status_id');
-        if ($filterUserId) $statusCountsQuery->where('assigned_to', $filterUserId);
+        // 2. Lead Status Data (All-time counts cached for 5 mins)
+        $statusCounts = Cache::remember(
+            "box:{$boxId}:all_time_status_counts" . ($filterUserId ? ":{$filterUserId}" : ""),
+            now()->addMinutes(5),
+            function () use ($boxId, $filterUserId) {
+                $statusCountsQuery = Lead::where('box_id', $boxId)
+                    ->whereNotNull('lead_status_id');
+                if ($filterUserId) $statusCountsQuery->where('assigned_to', $filterUserId);
 
-        $statusCounts = $statusCountsQuery->select('lead_status_id', DB::raw('COUNT(*) as count'))
-            ->groupBy('lead_status_id')
-            ->pluck('count', 'lead_status_id');
+                return $statusCountsQuery->select('lead_status_id', DB::raw('COUNT(*) as count'))
+                    ->groupBy('lead_status_id')
+                    ->pluck('count', 'lead_status_id');
+            }
+        );
             
         $statusData = $referenceData['statuses']->map(function ($status) use ($statusCounts) {
             $colors = ['#7367F0', '#28C76F', '#EA5455', '#FF9F43', '#00CFDD', '#4B4B46', '#1E90FF', '#FF1493', '#FFD700', '#8A2BE2'];
@@ -322,15 +339,21 @@ class DashboardService
             ];
         });
 
-        // 3. Source Stats
-        $sourceStatsQuery = Lead::where('box_id', $boxId)
-            ->whereNotNull('lead_source_id');
-        if ($filterUserId) $sourceStatsQuery->where('assigned_to', $filterUserId);
+        // 3. Source Stats (All-time counts and values cached for 5 mins)
+        $sourceStats = Cache::remember(
+            "box:{$boxId}:all_time_source_stats" . ($filterUserId ? ":{$filterUserId}" : ""),
+            now()->addMinutes(5),
+            function () use ($boxId, $filterUserId) {
+                $sourceStatsQuery = Lead::where('box_id', $boxId)
+                    ->whereNotNull('lead_source_id');
+                if ($filterUserId) $sourceStatsQuery->where('assigned_to', $filterUserId);
 
-        $sourceStats = $sourceStatsQuery->select('lead_source_id', DB::raw('count(*) as count'), DB::raw('sum(amount) as value'))
-            ->groupBy('lead_source_id')
-            ->get()
-            ->keyBy('lead_source_id');
+                return $sourceStatsQuery->select('lead_source_id', DB::raw('count(*) as count'), DB::raw('sum(amount) as value'))
+                    ->groupBy('lead_source_id')
+                    ->get()
+                    ->keyBy('lead_source_id');
+            }
+        );
             
         $sourceData = $referenceData['sources']->map(function ($source) use ($sourceStats) {
                 $stats = $sourceStats->get($source->id);
@@ -549,6 +572,89 @@ class DashboardService
             $userColors[] = '#d3d3d3';
         }
 
+        // 11. User Performance: Total Assigned Leads vs Matured Leads vs Done Activities (cached for 5 mins)
+        $chartYearKey = $dates['chartYear'];
+        $userPerformanceChartData = Cache::remember(
+            "box:{$boxId}:user_perf_chart:{$chartYearKey}" . ($filterUserId ? ":{$filterUserId}" : ""),
+            now()->addMinutes(5),
+            function () use ($boxId, $dates, $referenceData, $filterUserId) {
+                $matureStageIds = $referenceData['statuses']
+                    ->filter(fn ($status) => str_contains(strtolower($status->name), 'mature'))
+                    ->pluck('id')
+                    ->toArray();
+                $matureStageSql = !empty($matureStageIds) ? ' OR lead_status_id IN (' . implode(',', $matureStageIds) . ')' : '';
+
+                $userLeadStatsQuery = Lead::where('box_id', $boxId)
+                    ->whereBetween('created_at', [$dates['chartStart'], $dates['chartEnd']])
+                    ->whereNotNull('assigned_to');
+
+                if ($filterUserId) {
+                    $userLeadStatsQuery->where('assigned_to', $filterUserId);
+                }
+
+                $userLeadStats = $userLeadStatsQuery->select(
+                    'assigned_to',
+                    DB::raw('COUNT(*) as total_assigned'),
+                    DB::raw("SUM(CASE WHEN is_matured = 1 OR matured_date IS NOT NULL{$matureStageSql} THEN 1 ELSE 0 END) as matured_count")
+                )
+                ->groupBy('assigned_to')
+                ->orderByDesc('total_assigned')
+                ->limit(15)
+                ->get();
+
+                $assignedUserIds = $userLeadStats->pluck('assigned_to')->filter()->unique()->toArray();
+
+                $doneActivities = [];
+                if (!empty($assignedUserIds)) {
+                    $doneActivities = Activity::where('box_id', $boxId)
+                        ->whereBetween('created_at', [$dates['chartStart'], $dates['chartEnd']])
+                        ->whereIn('status', ['Close', 'Closed', 'Completed', 'Done'])
+                        ->whereIn('assigned_to', $assignedUserIds)
+                        ->select('assigned_to', DB::raw('COUNT(*) as count'))
+                        ->groupBy('assigned_to')
+                        ->pluck('count', 'assigned_to')
+                        ->toArray();
+                }
+
+                $usersMap = !empty($assignedUserIds) ? \App\Models\User::whereIn('id', $assignedUserIds)->pluck('name', 'id') : collect();
+
+                $userPerfCategories = [];
+                $totalAssignedData = [];
+                $maturedData = [];
+                $doneActivitiesData = [];
+
+                foreach ($userLeadStats as $stat) {
+                    $uid = $stat->assigned_to;
+                    $rawName = $usersMap[$uid] ?? ('User #' . $uid);
+                    $userName = trim($rawName) ?: ('User #' . $uid);
+
+                    $userPerfCategories[] = $userName;
+                    $totalAssignedData[] = (int) $stat->total_assigned;
+                    $maturedData[] = (int) $stat->matured_count;
+                    $doneActivitiesData[] = (int) ($doneActivities[$uid] ?? 0);
+                }
+
+                return [
+                    'categories' => $userPerfCategories,
+                    'series' => [
+                        [
+                            'name' => 'Total Assigned Leads',
+                            'data' => $totalAssignedData,
+                        ],
+                        [
+                            'name' => 'Matured Leads',
+                            'data' => $maturedData,
+                        ],
+                        [
+                            'name' => 'Done Activities',
+                            'data' => $doneActivitiesData,
+                        ],
+                    ],
+                    'colors' => ['#7367F0', '#28C76F', '#FF9F43'],
+                ];
+            }
+        );
+
         return [
             'pipelineData'        => $pipelineData,
             'statusData'          => $statusData,
@@ -583,7 +689,8 @@ class DashboardService
                 'labels' => $months,
                 'series' => $userSeries,
                 'colors' => $userColors
-            ]
+            ],
+            'userPerformanceChartData' => $userPerformanceChartData,
         ];
     }
 

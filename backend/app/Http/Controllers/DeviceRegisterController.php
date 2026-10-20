@@ -11,13 +11,8 @@ class DeviceRegisterController extends Controller
 {
     public function index(Request $request, $box_slug)
     {
-        if ($request->ajax() || $request->wantsJson()) {
-            $box = \App\Models\Box::where('slug', $box_slug)->first();
-            $query = DeviceRegister::query();
-            if ($box) {
-                $query->where('boxes_id', $box->id);
-            }
-            $data = $query->latest()->get();
+        if ($request->ajax()) {
+            $data = DeviceRegister::latest()->get();
             return Datatables::of($data)
                 ->addIndexColumn()
                 ->editColumn('status', function($row) {
@@ -55,12 +50,8 @@ class DeviceRegisterController extends Controller
             'status' => 'required',
         ]);
 
-        $box = \App\Models\Box::where('slug', $box_slug)->first();
         $device = new DeviceRegister();
         $device->fill($request->all());
-        if ($box) {
-            $device->boxes_id = $box->id;
-        }
         $device->created_by = Auth::id();
         $device->save();
 

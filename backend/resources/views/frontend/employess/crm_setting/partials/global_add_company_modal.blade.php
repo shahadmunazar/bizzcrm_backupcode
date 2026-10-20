@@ -101,8 +101,10 @@
             store: "{{ box_route('settings.general.companies.store') }}"
         };
 
-        // Load states on page load (India - 101) for the global modal
-        loadGlobalCompanyStates();
+        // Load states only when offcanvas modal is opened (lazy load)
+        $('#global_add_company').one('show.bs.offcanvas', function () {
+            loadGlobalCompanyStates();
+        });
 
         // Clear modal on open
         $('#global_add_company').on('show.bs.offcanvas', function () {

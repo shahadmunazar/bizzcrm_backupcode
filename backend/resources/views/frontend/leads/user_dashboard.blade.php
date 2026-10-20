@@ -721,6 +721,39 @@
 				<!-- /Chart -->
 			</div>
 
+			<div class="row">
+				<!-- User Performance: Assigned vs Matured vs Done Activities Chart -->
+				<div class="col-md-12">
+					<div class="card">
+						<div class="card-header d-flex align-items-center justify-content-between flex-wrap row-gap-2">
+							<div>
+								<h5 class="card-title mb-1">User Performance: Assigned Leads, Matured & Done Activities</h5>
+								<p class="fs-12 text-muted mb-0">Total leads assigned, successfully matured leads, and completed activities per user</p>
+							</div>
+							<div class="dropdown">
+								<a href="javascript:void(0);"
+									class="btn btn-white border btn-sm d-inline-flex align-items-center chart-year-display"
+									data-bs-toggle="dropdown">
+									<i class="ti ti-calendar me-1"></i>{{ $defaultYear }}
+								</a>
+								<ul class="dropdown-menu dropdown-menu-end p-3 chart-year-selector">
+									@foreach ($availableYears as $year)
+										<li>
+											<a href="javascript:void(0);"
+												class="dropdown-item rounded-1">{{ $year }}</a>
+										</li>
+									@endforeach
+								</ul>
+							</div>
+						</div>
+						<div class="card-body">
+							<div id="user-performance-chart" class="chart-set"></div>
+						</div>
+					</div>
+				</div>
+				<!-- /User Performance Chart -->
+			</div>
+
 
 
 
@@ -1833,6 +1866,112 @@
 							};
 							dashboardCharts.assignedUserBar = new ApexCharts(document.querySelector("#assigned-leads-user-chart"), optionsAssignedUser);
 							dashboardCharts.assignedUserBar.render();
+						}
+
+						// 12. User Performance Chart (Assigned Leads vs Matured vs Done Activities)
+						if (document.querySelector("#user-performance-chart") && response.userPerformanceChartData) {
+							if (dashboardCharts.userPerformanceBar) dashboardCharts.userPerformanceBar.destroy();
+
+							var userPerfData = response.userPerformanceChartData;
+							if (!userPerfData.categories || userPerfData.categories.length === 0) {
+								$('#user-performance-chart').html('<div class="text-center p-4 text-muted"><i class="ti ti-chart-bar fs-32 d-block mb-2"></i>No user performance records found for this period.</div>');
+							} else {
+								var optionsUserPerf = {
+									series: userPerfData.series,
+									chart: {
+										height: 380,
+										type: 'bar',
+										toolbar: {
+											show: false
+										},
+										animations: {
+											enabled: true,
+											easing: 'easeinout',
+											speed: 800,
+										}
+									},
+									plotOptions: {
+										bar: {
+											horizontal: false,
+											columnWidth: '55%',
+											borderRadius: 4,
+											dataLabels: {
+												position: 'top'
+											}
+										},
+									},
+									dataLabels: {
+										enabled: true,
+										offsetY: -20,
+										formatter: function (val) {
+											if (val >= 1000) {
+												return (val / 1000).toFixed(1) + 'k';
+											}
+											return val > 0 ? val : '';
+										},
+										style: {
+											fontSize: '10px',
+											fontWeight: 600,
+											colors: ["#64748b"]
+										}
+									},
+									stroke: {
+										show: true,
+										width: 2,
+										colors: ['transparent']
+									},
+									xaxis: {
+										categories: userPerfData.categories,
+										axisBorder: {
+											show: false
+										},
+										labels: {
+											rotate: -20,
+											style: {
+												fontSize: '11px',
+												fontWeight: 500
+											}
+										}
+									},
+									yaxis: {
+										title: {
+											text: 'Total Count'
+										},
+										labels: {
+											formatter: function (val) {
+												if (val >= 1000) {
+													return (val / 1000).toFixed(0) + 'k';
+												}
+												return val;
+											}
+										}
+									},
+									fill: {
+										opacity: 1
+									},
+									colors: userPerfData.colors || ['#7367F0', '#28C76F', '#FF9F43'],
+									grid: {
+										borderColor: '#f1f1f1',
+										strokeDashArray: 3
+									},
+									legend: {
+										position: 'top',
+										horizontalAlign: 'right',
+										fontWeight: 500
+									},
+									tooltip: {
+										shared: true,
+										intersect: false,
+										y: {
+											formatter: function (val) {
+												return Number(val).toLocaleString();
+											}
+										}
+									}
+								};
+								dashboardCharts.userPerformanceBar = new ApexCharts(document.querySelector("#user-performance-chart"), optionsUserPerf);
+								dashboardCharts.userPerformanceBar.render();
+							}
 						}
 
 					}

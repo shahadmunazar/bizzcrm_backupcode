@@ -698,9 +698,40 @@
 				</div>
 			</div>
 		</div>
+<style>
+	#assign_offline_plan_modal .select2-container .select2-selection--single {
+		height: 42px;
+		display: flex;
+		align-items: center;
+		border-color: #e2e8f0;
+	}
+	#assign_offline_plan_modal .select2-container--default .select2-selection--single .select2-selection__rendered {
+		line-height: 40px;
+		color: #1e293b;
+		font-weight: 500;
+	}
+	#assign_offline_plan_modal .select2-container--default .select2-selection--single .select2-selection__arrow {
+		height: 40px;
+	}
+	.company-opt-item {
+		transition: all 0.15s ease;
+	}
+	.select2-container--default .select2-results__option--highlighted[aria-selected] .company-opt-item .text-dark,
+	.select2-container--default .select2-results__option--highlighted[aria-selected] .company-opt-item .text-muted,
+	.select2-container--default .select2-results__option--highlighted[aria-selected] .company-opt-item .text-primary,
+	.select2-container--default .select2-results__option--highlighted[aria-selected] .company-opt-item .text-success,
+	.select2-container--default .select2-results__option--highlighted[aria-selected] .company-opt-item .text-info {
+		color: #ffffff !important;
+	}
+	.select2-container--default .select2-results__option--highlighted[aria-selected] .company-opt-item .badge {
+		background-color: rgba(255, 255, 255, 0.25) !important;
+		color: #ffffff !important;
+		border-color: rgba(255, 255, 255, 0.4) !important;
+	}
+</style>
 <!-- Assign Offline Plan Modal -->
 		<div class="modal fade" id="assign_offline_plan_modal" tabindex="-1" aria-hidden="true">
-			<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-dialog modal-dialog-centered modal-lg">
 				<div class="modal-content">
 					<div class="modal-header">
 						<h5 class="modal-title">Assign Offline Plan</h5>
@@ -710,10 +741,13 @@
 						<form id="assign_offline_plan_form">
 							@csrf
 							<div class="mb-3">
-								<label class="form-label">Company (Box)</label>
+								<label class="form-label">Company (Box) <span class="text-danger">*</span></label>
 								<select class="form-select" name="box_id" id="assign_box_id" required>
 									<option value="">Select Company</option>
 								</select>
+								<div class="form-text text-muted small mt-1">
+									<i class="ti ti-search me-1"></i>Search company by name, slug, email, or phone (sorted newest first)
+								</div>
 							</div>
 							<div class="mb-3">
 								<label class="form-label">Plan</label>
@@ -1024,6 +1058,83 @@
     });
 </script>
 <script>
+    function escapeHtml(text) {
+        if (!text) return '';
+        return $('<div>').text(text).html();
+    }
+
+    function matchCompany(params, data) {
+        if ($.trim(params.term) === '') {
+            return data;
+        }
+        if (typeof data.text === 'undefined') {
+            return null;
+        }
+        var term = params.term.toLowerCase().trim();
+        var cleanTermDigits = term.replace(/[^0-9]/g, '');
+
+        var $el = $(data.element);
+        var company = ($el.attr('data-company') || '').toLowerCase();
+        var slug = ($el.attr('data-slug') || '').toLowerCase();
+        var admin = ($el.attr('data-admin') || '').toLowerCase();
+        var email = ($el.attr('data-email') || '').toLowerCase();
+        var phone = ($el.attr('data-phone') || '').toLowerCase();
+        var cleanPhone = phone.replace(/[^0-9]/g, '');
+        var fullText = (data.text || '').toLowerCase();
+
+        if (
+            fullText.indexOf(term) > -1 ||
+            company.indexOf(term) > -1 ||
+            slug.indexOf(term) > -1 ||
+            admin.indexOf(term) > -1 ||
+            email.indexOf(term) > -1 ||
+            phone.indexOf(term) > -1 ||
+            (cleanTermDigits.length >= 3 && cleanPhone.indexOf(cleanTermDigits) > -1)
+        ) {
+            return data;
+        }
+        return null;
+    }
+
+    function formatCompanyOption(box) {
+        if (!box.id) {
+            return box.text;
+        }
+        var $el = $(box.element);
+        var company = $el.attr('data-company') || box.text;
+        var slug = $el.attr('data-slug') || '';
+        var admin = $el.attr('data-admin') || '';
+        var email = $el.attr('data-email') || '';
+        var phone = $el.attr('data-phone') || '';
+
+        var html = '<div class="company-opt-item py-1">' +
+            '<div class="d-flex justify-content-between align-items-center mb-1">' +
+                '<span class="fw-semibold text-dark fs-14">' + escapeHtml(company) + '</span>' +
+                (slug ? '<span class="badge bg-light text-muted border fs-11">' + escapeHtml(slug) + '</span>' : '') +
+            '</div>' +
+            '<div class="text-muted fs-12 d-flex flex-wrap gap-2 align-items-center">' +
+                (admin && admin !== 'Unknown' ? '<span><i class="ti ti-user me-1 text-primary"></i>' + escapeHtml(admin) + '</span>' : '') +
+                (email ? '<span class="text-secondary">•</span><span><i class="ti ti-mail me-1 text-success"></i>' + escapeHtml(email) + '</span>' : '') +
+                (phone ? '<span class="text-secondary">•</span><span><i class="ti ti-phone me-1 text-info"></i>' + escapeHtml(phone) + '</span>' : '') +
+            '</div>' +
+        '</div>';
+        return $(html);
+    }
+
+    function formatCompanySelection(box) {
+        if (!box.id) {
+            return box.text;
+        }
+        var $el = $(box.element);
+        var company = $el.attr('data-company') || box.text;
+        var email = $el.attr('data-email');
+        var phone = $el.attr('data-phone');
+        var details = [];
+        if (email) details.push(email);
+        if (phone) details.push(phone);
+        return company + (details.length ? ' (' + details.join(' | ') + ')' : '');
+    }
+
     $(document).ready(function() {
         var boxSlug = "{{ request()->route('box_slug') ?? request('box_slug') ?? session('box_slug') }}";
 
@@ -1043,8 +1154,18 @@
                         bulkPlanSelect.empty().append('<option value="">Select Plan</option>');
 
                         $.each(response.boxes, function(i, box) {
-                            var dateAttr = box.last_active_end_date ? ' data-expiry="'+box.last_active_end_date+'"' : '';
-                            boxSelect.append('<option value="'+box.id+'"'+dateAttr+'>'+box.name+'</option>');
+                            var opt = $('<option></option>')
+                                .val(box.id)
+                                .text(box.name)
+                                .attr('data-company', box.company_name || '')
+                                .attr('data-slug', box.slug || '')
+                                .attr('data-admin', box.admin_name || '')
+                                .attr('data-email', box.email || '')
+                                .attr('data-phone', box.phone || '');
+                            if (box.last_active_end_date) {
+                                opt.attr('data-expiry', box.last_active_end_date);
+                            }
+                            boxSelect.append(opt);
                         });
 
                         $.each(response.plans, function(i, plan) {
@@ -1054,16 +1175,30 @@
 
                         // Initialize Select2 for the Company and Plan selects to enable typeahead search
                         if ($.fn.select2) {
+                            if ($('#assign_box_id').hasClass("select2-hidden-accessible")) {
+                                $('#assign_box_id').select2('destroy');
+                            }
                             $('#assign_box_id').select2({
                                 dropdownParent: $('#assign_offline_plan_modal'),
                                 width: '100%',
-                                placeholder: 'Search Company...'
+                                placeholder: 'Search Company by Name, Email, or Phone...',
+                                matcher: matchCompany,
+                                templateResult: formatCompanyOption,
+                                templateSelection: formatCompanySelection
                             });
+
+                            if ($('#assign_plan_id').hasClass("select2-hidden-accessible")) {
+                                $('#assign_plan_id').select2('destroy');
+                            }
                             $('#assign_plan_id').select2({
                                 dropdownParent: $('#assign_offline_plan_modal'),
                                 width: '100%',
                                 placeholder: 'Search Plan...'
                             });
+
+                            if ($('#bulk_assign_plan_id').hasClass("select2-hidden-accessible")) {
+                                $('#bulk_assign_plan_id').select2('destroy');
+                            }
                             $('#bulk_assign_plan_id').select2({
                                 dropdownParent: $('#bulk_assign_offline_plan_modal'),
                                 width: '100%',
@@ -1075,10 +1210,18 @@
             });
         });
 
+        $('#assign_offline_plan_modal').on('hidden.bs.modal', function () {
+            $('#assign_offline_plan_form')[0].reset();
+            if ($.fn.select2) {
+                $('#assign_box_id').val('').trigger('change');
+                $('#assign_plan_id').val('').trigger('change');
+            }
+        });
+
         // When company is selected, check if they have a future expiry date and auto-fill starts_at
         $('#assign_box_id').on('change', function() {
             var selectedOpt = $(this).find(':selected');
-            var expiryDate = selectedOpt.data('expiry');
+            var expiryDate = selectedOpt.data('expiry') || selectedOpt.attr('data-expiry');
             
             if (expiryDate) {
                 $('input[name="starts_at"]').val(expiryDate);

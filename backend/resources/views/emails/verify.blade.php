@@ -15,7 +15,7 @@
     <table cellpadding="0" cellspacing="0" width="100%" style="margin: 30px 0;">
         <tr>
             <td align="center">
-                <a href="{{ url('/verify-email/' . $token) }}"
+                <a href="{{ $verificationUrl ?? url('/verify-email/' . $token) }}"
                    style="display: inline-block; padding: 14px 30px; background-color: {{ env('APP_THEME_COLOR', '#E41F07') }}; color: #fff; text-decoration: none; font-weight: bold; border-radius: 6px; font-size: 16px; transition: background-color 0.3s ease;">
                     Verify My Email
                 </a>

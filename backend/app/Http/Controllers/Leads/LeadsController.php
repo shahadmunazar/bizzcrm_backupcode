@@ -1027,34 +1027,20 @@ class LeadsController extends Controller
 
         // Apply scope filter (Individual vs Team vs All)
         $userId = Auth::id();
-        if (isset($params['lead_scope'])) {
-            $scope = $params['lead_scope'];
-            if ($scope === 'individual') {
-                $leadsQuery->where('leads.assigned_to', $userId);
-            } elseif ($scope === 'team') {
-                // If specific team members are selected, filter by them
-                if (isset($params['team_member_ids']) && !empty($params['team_member_ids'])) {
-                    $leadsQuery->whereIn('leads.assigned_to', $params['team_member_ids']);
-                } else {
-                    $boxUser = BoxUser::where('user_id', $userId)->where('box_id', $boxId)->first();
-                    $isGlobalAdmin = Auth::user() && Auth::user()->hasRole(['admin', 'superadmin'], 'web');
-                    $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
-                    
-                    if (!$isGlobalAdmin && !$isBoxAdmin && $boxUser) {
-                        $subordinateIds = BoxUser::getAllSubordinateIds($boxId, $userId, $boxUser);
-                        $subordinateUserIds = BoxUser::whereIn('id', $subordinateIds)->pluck('user_id')->toArray();
-                        $allRelevantUserIds = array_merge([$userId], $subordinateUserIds);
-                        $leadsQuery->whereIn('leads.assigned_to', $allRelevantUserIds);
-                    }
-                    // If they ARE an admin, we simply don't apply an assigned_to filter, showing all leads.
-                }
-            } elseif ($scope === 'all') {
-                $boxUser = BoxUser::where('user_id', $userId)->where('box_id', $boxId)->first();
-                $isGlobalAdmin = Auth::user() && Auth::user()->hasRole(['admin', 'superadmin'], 'web');
-                $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
-                
+        $boxUser = BoxUser::where('user_id', $userId)->where('box_id', $boxId)->first();
+        $isGlobalAdmin = Auth::user() && Auth::user()->hasRole(['admin', 'superadmin'], 'web');
+        $isBoxAdmin = $boxUser && strtolower($boxUser->staff_role ?? '') === 'admin';
+
+        $scope = $params['lead_scope'] ?? 'all';
+
+        if ($scope === 'individual') {
+            $leadsQuery->where('leads.assigned_to', $userId);
+        } elseif ($scope === 'team') {
+            // If specific team members are selected, filter by them
+            if (isset($params['team_member_ids']) && !empty($params['team_member_ids'])) {
+                $leadsQuery->whereIn('leads.assigned_to', $params['team_member_ids']);
+            } else {
                 if (!$isGlobalAdmin && !$isBoxAdmin) {
-                    // Not an admin? Fall back to team scope logic to prevent unauthorized access to all leads
                     if ($boxUser) {
                         $subordinateIds = BoxUser::getAllSubordinateIds($boxId, $userId, $boxUser);
                         $subordinateUserIds = BoxUser::whereIn('id', $subordinateIds)->pluck('user_id')->toArray();
@@ -1064,7 +1050,31 @@ class LeadsController extends Controller
                         $leadsQuery->where('leads.assigned_to', $userId);
                     }
                 }
-                // If they ARE an admin, we don't apply an assigned_to filter, showing all leads.
+                // If they ARE an admin and no team members specified, we don't apply an assigned_to filter, showing all leads.
+            }
+        } elseif ($scope === 'all') {
+            if (!$isGlobalAdmin && !$isBoxAdmin) {
+                // Not an admin? Fall back to team scope logic to prevent unauthorized access to all leads
+                if ($boxUser) {
+                    $subordinateIds = BoxUser::getAllSubordinateIds($boxId, $userId, $boxUser);
+                    $subordinateUserIds = BoxUser::whereIn('id', $subordinateIds)->pluck('user_id')->toArray();
+                    $allRelevantUserIds = array_merge([$userId], $subordinateUserIds);
+                    $leadsQuery->whereIn('leads.assigned_to', $allRelevantUserIds);
+                } else {
+                    $leadsQuery->where('leads.assigned_to', $userId);
+                }
+            }
+            // If they ARE an admin, we don't apply an assigned_to filter, showing all leads.
+        } else {
+            if (!$isGlobalAdmin && !$isBoxAdmin) {
+                if ($boxUser) {
+                    $subordinateIds = BoxUser::getAllSubordinateIds($boxId, $userId, $boxUser);
+                    $subordinateUserIds = BoxUser::whereIn('id', $subordinateIds)->pluck('user_id')->toArray();
+                    $allRelevantUserIds = array_merge([$userId], $subordinateUserIds);
+                    $leadsQuery->whereIn('leads.assigned_to', $allRelevantUserIds);
+                } else {
+                    $leadsQuery->where('leads.assigned_to', $userId);
+                }
             }
         }
 
@@ -1238,7 +1248,7 @@ class LeadsController extends Controller
         return $leadsQuery;
     }
 
-    public static function getDataTable($leadsQuery, $boxId)
+    public static function getDataTable($leadsQuery, $boxId, $includeTotals = false)
     {
 
         $customFields = BoxCustomField::where('box_id', $boxId)
@@ -1252,8 +1262,13 @@ class LeadsController extends Controller
         // Remove any hardcoded orderBy from the base query so DataTables sorting takes full precedence
         $leadsQuery->getQuery()->orders = null;
 
-        return DataTables::of($leadsQuery)
+        $dataTable = new \App\Services\DataTables\FastLeadsDataTable($leadsQuery, $boxId);
+
+        return $dataTable
             ->addColumn('last_receipt_amount', function ($lead) {
+                if (array_key_exists('preloaded_last_receipt_amount', $lead->getAttributes())) {
+                    return $lead->preloaded_last_receipt_amount;
+                }
                 $receipt = \App\Models\Accounts\Receipt::where('lead_id', $lead->id)
                     ->whereNull('deleted_at')
                     ->latest('created_at')
@@ -1261,6 +1276,9 @@ class LeadsController extends Controller
                 return $receipt ? (string)$receipt->amount : null;
             })
             ->addColumn('last_receipt_date', function ($lead) {
+                if (array_key_exists('preloaded_last_receipt_date', $lead->getAttributes())) {
+                    return $lead->preloaded_last_receipt_date;
+                }
                 $receipt = \App\Models\Accounts\Receipt::where('lead_id', $lead->id)
                     ->whereNull('deleted_at')
                     ->latest('created_at')
@@ -1268,6 +1286,9 @@ class LeadsController extends Controller
                 return $receipt && $receipt->receipt_date ? \Carbon\Carbon::parse($receipt->receipt_date)->format('Y-m-d H:i:s') : null;
             })
             ->addColumn('last_activity_date', function ($lead) {
+                if (array_key_exists('preloaded_last_activity_date', $lead->getAttributes())) {
+                    return $lead->preloaded_last_activity_date;
+                }
                 $activity = \App\Models\Activity::where('activity_id', $lead->id)
                     ->where('activity_date', '<', \Carbon\Carbon::now())
                     ->orderBy('activity_date', 'desc')
@@ -1275,17 +1296,26 @@ class LeadsController extends Controller
                 return $activity && $activity->activity_date ? \Carbon\Carbon::parse($activity->activity_date)->format('Y-m-d H:i:s') : null;
             })
             ->addColumn('receipts_sum_amount', function ($lead) {
+                if (array_key_exists('preloaded_receipts_sum_amount', $lead->getAttributes())) {
+                    return $lead->preloaded_receipts_sum_amount;
+                }
                 $sum = \App\Models\Accounts\Receipt::where('lead_id', $lead->id)
                     ->whereNull('deleted_at')
                     ->sum('amount');
                 return $sum > 0 ? (string)$sum : null;
             })
             ->addColumn('division_areas_count', function ($lead) {
+                if (array_key_exists('preloaded_division_areas_count', $lead->getAttributes())) {
+                    return $lead->preloaded_division_areas_count;
+                }
                 return \App\Models\DivisionArea::where('lead_id', $lead->id)->count();
             })
             // Use 'addIndexColumn' if you want client side indexing, but DataTables does it.
             // Disable 'rowId' if not needed to save bytes, but we might use it.
             ->addColumn('custom_data', function ($lead) use ($customFields, $hasCustomTable, $tableName) {
+                if (array_key_exists('preloaded_custom_data', $lead->getAttributes())) {
+                    return $lead->preloaded_custom_data;
+                }
                 // Return empty object immediately if no custom fields
                 if ($customFields->isEmpty()) {
                     return (object) [];
@@ -1498,11 +1528,9 @@ class LeadsController extends Controller
             // Raw columns allowed
             ->rawColumns(['checkbox', 'star', 'lead_name', 'lead_id'])
             ->with([
-                'total_amount' => (clone $leadsQuery)->sum('amount'),
-                'total_receipts_amount' => \DB::table('receipts')
-                    ->whereIn('lead_id', (clone $leadsQuery)->select('leads.id'))
-                    ->whereNull('deleted_at')
-                    ->sum('amount') ?? 0
+                'total_amount' => ($includeTotals || (request()->has('include_totals') && request()->boolean('include_totals')))
+                    ? (clone $leadsQuery)->sum('amount')
+                    : 0,
             ]);
 
         // Note: make(true) is called in the controller to handle everything.
@@ -1903,7 +1931,14 @@ class LeadsController extends Controller
 
     public function getDSRLeads(Request $request)
     {
+        $startTime = microtime(true);
+        \DB::enableQueryLog();
+        \DB::flushQueryLog();
+
         try {
+            ini_set('memory_limit', '1024M');
+            set_time_limit(300);
+
             $boxId = BoxUser::where('user_id', Auth::id())
                 ->value('box_id');
             if (!$boxId) {
@@ -1919,8 +1954,30 @@ class LeadsController extends Controller
             \Illuminate\Support\Facades\Log::info("getDSRLeads payload:", $request->all());
 
             // Use standard DataTable response generator
-            $dataTable = self::getDataTable($leadsQuery, $boxId);
-            return $dataTable->make(true);
+            $dataTable = self::getDataTable($leadsQuery, $boxId, $request->boolean('include_totals', false));
+            $response = $dataTable->make(true);
+
+            // Compute performance metrics
+            $totalTimeMs = round((microtime(true) - $startTime) * 1000, 2);
+            $queries = \DB::getQueryLog();
+            $queryCount = count($queries);
+            $dbTimeMs = round(array_sum(array_column($queries, 'time')), 2);
+
+            if ($response instanceof \Illuminate\Http\JsonResponse) {
+                $response->header('X-Response-Time-Ms', (string)$totalTimeMs);
+                $response->header('X-DB-Time-Ms', (string)$dbTimeMs);
+                $response->header('X-Query-Count', (string)$queryCount);
+
+                $data = $response->getData(true);
+                $data['performance'] = [
+                    'total_time_ms' => $totalTimeMs,
+                    'db_time_ms' => $dbTimeMs,
+                    'query_count' => $queryCount,
+                ];
+                $response->setData($data);
+            }
+
+            return $response;
 
         } catch (\Throwable $th) {
             \Illuminate\Support\Facades\Log::error("getDSRLeads error: " . $th->getMessage());
@@ -2110,8 +2167,8 @@ class LeadsController extends Controller
                 // This Month: From start of month to end of month (Completed Date)
                 $leadsQuery->whereNotNull('activities.completed_date')
                            ->whereBetween('activities.completed_date', [
-                    Carbon::now()->startOfMonth()->format('Y-m-d'),
-                    Carbon::now()->endOfMonth()->format('Y-m-d')
+                    Carbon::now()->startOfMonth()->format('Y-m-d') . ' 00:00:00',
+                    Carbon::now()->endOfMonth()->format('Y-m-d') . ' 23:59:59'
                 ])
                     ->orderBy('activities.completed_date', 'asc');
                 break;
@@ -4621,6 +4678,7 @@ class LeadsController extends Controller
     public function getTeamMembers(Request $request, $box_slug)
     {
         $userId = Auth::id();
+        $user = Auth::user();
         $box = Box::where('slug', $box_slug)->first();
         if (!$box) {
             return response()->json(['status' => 'error', 'message' => 'Box not found']);
@@ -4628,27 +4686,18 @@ class LeadsController extends Controller
         $boxId = $box->id;
         $boxUser = BoxUser::where('user_id', $userId)->where('box_id', $boxId)->first();
         if (!$boxUser) {
-            return response()->json(['status' => 'success', 'data' => []]);
+            return response()->json(['status' => 'success', 'data' => [], 'tree' => []]);
         }
-        $subordinateIds = BoxUser::getAllSubordinateIds($boxId, $userId, $boxUser);
-        $teamMembers = BoxUser::whereIn('id', $subordinateIds)
-            ->with(['user:id,name,email'])
-            ->get()
-            ->map(function ($bu) use ($boxUser) {
-                // Determine parent ID within the subordinates list
-                // If the reporting manager is NOT in the list, set parent to current user (the root of this view)
-                $parentId = $bu->reporting_manager_id;
 
-                return [
-                    'id' => $bu->user_id,
-                    'box_user_id' => $bu->id,
-                    'name' => $bu->user->name ?? 'Unknown',
-                    'email' => $bu->user->email ?? '--',
-                    'parent_box_user_id' => $parentId,
-                    'is_root' => ($parentId === $boxUser->id || !$parentId)
-                ];
-            });
+        $leadService = app(\App\Services\LeadService::class);
+        $result = $leadService->getTeamHierarchy($box, $user, $boxUser);
 
-        return response()->json(['status' => 'success', 'data' => $teamMembers, 'root_box_user_id' => $boxUser->id]);
+        return response()->json([
+            'status' => 'success',
+            'success' => true,
+            'root_box_user_id' => $result['root_box_user_id'],
+            'data' => $result['data'],
+            'tree' => $result['tree']
+        ]);
     }
 }

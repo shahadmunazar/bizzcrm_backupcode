@@ -169,15 +169,56 @@ class PerformanceDashboardController extends Controller
             $query->where('box_user_id', $boxUser->id);
         }
 
-        if ($request->has('start_date') && $request->has('end_date')) {
-            $query->whereBetween('created_at', [$request->start_date . ' 00:00:00', $request->end_date . ' 23:59:59']);
+        // Resolve start_date and end_date based on month, year, or custom date range
+        $startDate = null;
+        $endDate = null;
+
+        $monthInput = $request->input('month') ?: $request->input('month_year');
+        $yearInput = $request->input('year');
+
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $startDate = $request->input('start_date');
+            $endDate = $request->input('end_date');
+        } elseif (!empty($monthInput)) {
+            if ($monthInput === 'all' || $monthInput === 'all_months') {
+                $templateStartDate = \App\Models\TargetTemplate::where('box_id', $box->id)->min('start_date') ?: '2026-01-01';
+                $startDate = \Carbon\Carbon::parse($templateStartDate)->startOfMonth()->toDateString();
+                $endDate = now()->endOfMonth()->toDateString();
+            } elseif ($monthInput === 'this_month') {
+                $startDate = now()->startOfMonth()->toDateString();
+                $endDate = now()->endOfMonth()->toDateString();
+            } elseif ($monthInput === 'last_month') {
+                $startDate = now()->subMonth()->startOfMonth()->toDateString();
+                $endDate = now()->subMonth()->endOfMonth()->toDateString();
+            } elseif (preg_match('/^\d{4}-\d{2}$/', $monthInput)) {
+                $startDate = $monthInput . '-01';
+                $endDate = \Carbon\Carbon::parse($startDate)->endOfMonth()->toDateString();
+            } elseif (is_numeric($monthInput) && (int)$monthInput >= 1 && (int)$monthInput <= 12) {
+                $y = !empty($yearInput) ? $yearInput : now()->format('Y');
+                $m = str_pad($monthInput, 2, '0', STR_PAD_LEFT);
+                $startDate = "{$y}-{$m}-01";
+                $endDate = \Carbon\Carbon::parse($startDate)->endOfMonth()->toDateString();
+            } else {
+                try {
+                    $parsed = \Carbon\Carbon::parse($monthInput);
+                    $startDate = $parsed->copy()->startOfMonth()->toDateString();
+                    $endDate = $parsed->copy()->endOfMonth()->toDateString();
+                } catch (\Exception $e) {
+                    $startDate = now()->startOfMonth()->toDateString();
+                    $endDate = now()->endOfMonth()->toDateString();
+                }
+            }
+        } elseif (!empty($yearInput) && is_numeric($yearInput)) {
+            $startDate = "{$yearInput}-01-01";
+            $endDate = "{$yearInput}-12-31";
+        } else {
+            $startDate = now()->startOfMonth()->toDateString();
+            $endDate = now()->endOfMonth()->toDateString();
         }
 
         $assignments = $query->orderBy('id', 'desc')->get();
         
         $service = new \App\Services\TargetCalculationService();
-        $startDate = $request->input('start_date');
-        $endDate = $request->input('end_date');
         $service->syncActualsBatch($assignments, $startDate, $endDate, $box->id);
 
         // Calculate aggregate stats
@@ -465,6 +506,11 @@ class PerformanceDashboardController extends Controller
         return response()->json([
             'assignments' => $assignments,
             'stats' => [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'month' => \Carbon\Carbon::parse($startDate)->format('Y-m'),
+                'year' => \Carbon\Carbon::parse($startDate)->format('Y'),
+                'month_label' => \Carbon\Carbon::parse($startDate)->format('F Y'),
                 'total_targets' => $totalTargets,
                 'completed_targets' => $completedTargets,
                 'pending_targets' => $pendingTargets,

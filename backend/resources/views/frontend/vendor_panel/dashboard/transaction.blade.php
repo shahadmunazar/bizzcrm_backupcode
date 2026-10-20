@@ -130,11 +130,14 @@
                 let rows = '';
                 if(data.transactions && data.transactions.length > 0) {
                     $.each(data.transactions, function(index, txn) {
-                        let dateObj = new Date(txn.created_at);
-                        let dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' + dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-                        let statusBadge = txn.status == 'paid' 
-                            ? '<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 small">Paid</span>'
-                            : '<span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1 small">Pending</span>';
+                        let statusBadge = '';
+                        if (txn.status === 'paid') {
+                            statusBadge = '<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 small"><i class="fa-solid fa-check-double me-1"></i> Paid</span>';
+                        } else if (txn.status === 'verified') {
+                            statusBadge = '<span class="badge bg-info-subtle text-info border border-info-subtle px-2 py-1 small"><i class="fa-solid fa-check-circle me-1"></i> Verified by Admin</span>';
+                        } else {
+                            statusBadge = '<span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1 small"><i class="fa-solid fa-clock me-1"></i> Unpaid (Pending Review)</span>';
+                        }
                             
                         rows += '<tr>';
                         rows += '<td class="py-3 ps-3"><h6 class="mb-0 fw-semibold text-dark" style="font-size: 0.9rem;">#TXN-' + txn.id.toString().padStart(5, '0') + '</h6></td>';

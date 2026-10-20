@@ -92,39 +92,44 @@
                                 <p>Create new Vendor account</p>
                             </div>
                             <div class="mb-3">
-                                <label class="col-form-label">Name</label>
+                                <label class="col-form-label">Name <span class="text-danger">*</span></label>
                                 <div class="position-relative">
                                     <span class="input-icon-addon">
                                         <i class="ti ti-user"></i>
                                     </span>
-                                    <input type="text" value="" name="name" class="form-control">
+                                    <input type="text" value="{{ old('name', request('name')) }}" name="name" class="form-control" placeholder="Enter your full name" required>
                                 </div>
                             </div>
                             <div class="mb-3">
-                                <label class="col-form-label">Email Address</label>
+                                <label class="col-form-label">Email Address <span class="text-danger">*</span></label>
                                 <div class="position-relative">
                                     <span class="input-icon-addon">
                                         <i class="ti ti-mail"></i>
                                     </span>
-                                    <input type="text" value="" name="email" class="form-control">
+                                    <input type="email" value="{{ old('email', $email ?? request('email')) }}" name="email" class="form-control" placeholder="Enter your email address" required>
                                 </div>
+                                @if($email ?? request('email'))
+                                    <small class="text-success mt-1 d-block fw-semibold">
+                                        <i class="ti ti-circle-check me-1"></i> Email address pre-filled from your invitation.
+                                    </small>
+                                @endif
                             </div>
                             <div class="mb-3">
-                                <label class="col-form-label">Phone No.</label>
+                                <label class="col-form-label">Phone No. <span class="text-danger">*</span></label>
                                 <div class="position-relative">
                                     <span class="input-icon-addon">
                                         <i class="ti ti-phone"></i>
                                     </span>
-                                    <input type="text" value="" name="phone" class="form-control">
+                                    <input type="text" value="{{ old('phone', request('phone')) }}" name="phone" class="form-control" placeholder="Enter mobile number" required>
                                 </div>
                             </div>
                             <div class="mb-3">
-                                <label class="col-form-label">Company Name</label>
+                                <label class="col-form-label">Company Name <span class="text-danger">*</span></label>
                                 <div class="position-relative">
                                     <span class="input-icon-addon">
                                         <i class="ti ti-building"></i>
                                     </span>
-                                    <input type="text" value="" name="company_name" class="form-control">
+                                    <input type="text" value="{{ old('company_name', request('company')) }}" name="company_name" class="form-control" placeholder="Enter company name" required>
                                 </div>
                             </div>
                             <div class="mb-3">
@@ -180,7 +185,7 @@
                                     <span class="input-icon-addon">
                                         <i class="ti ti-building"></i>
                                     </span>
-                                    <input type="text" value="" name="pincode" class="form-control">
+                                    <input type="text" value="{{ old('pincode') }}" name="pincode" id="pincodeInput" class="form-control" placeholder="Enter pin code">
                                 </div>
                             </div>
 
@@ -190,24 +195,11 @@
                                     <span class="input-icon-addon">
                                         <i class="ti ti-map"></i>
                                     </span>
-                                    <input type="text" value="" name="address" class="form-control">
+                                    <input type="text" value="{{ old('address') }}" name="address" id="addressInput" class="form-control" placeholder="Enter complete address">
                                 </div>
                             </div>
 
-                            <!-- <div class="mb-3">
-                                <label class="col-form-label">Password</label>
-                                <div class="pass-group">
-                                    <input type="password" class="pass-input form-control">
-                                    <span class="ti toggle-password ti-eye-off"></span>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="col-form-label">Confirm Password</label>
-                                <div class="pass-group">
-                                    <input type="password" class="pass-inputs form-control">
-                                    <span class="ti toggle-passwords ti-eye-off"></span>
-                                </div>
-                            </div> -->
+
                             <div class="d-flex align-items-center justify-content-between mb-3">
                                 <div class="form-check form-check-md d-flex align-items-center">
                                     <input class="form-check-input" type="checkbox" value="" id="checkebox-md"
@@ -265,21 +257,28 @@
                     <div id="registrationSuccess" class="mx-auto mw-450 text-center" style="display: none;">
                         <div class="mb-4">
                             <img src="assets/img/logo.png" class="img-fluid mb-4" alt="Logo">
-                            <div class="mb-4">
-                                <i class="ti ti-circle-check-filled text-success" style="font-size: 80px;"></i>
+                            <div class="mb-3">
+                                <i class="ti ti-circle-check-filled text-success" style="font-size: 72px;"></i>
                             </div>
-                            <h4 class="mb-3 fs-24">Thank you for registering!</h4>
-                            <div class="card bg-light border-0">
-                                <div class="card-body">
-                                    <p class="text-dark mb-4 fs-16">
-                                        Your account has been created successfully.<br>
-                                        Your login details have been sent to your registered email address.
+                            <h4 class="mb-2 fs-22">Vendor Account Created Successfully!</h4>
+                            <div class="alert alert-warning border-0 shadow-sm text-start mb-3 p-3">
+                                <div class="d-flex align-items-center mb-1">
+                                    <i class="ti ti-mail-fast fs-20 me-2 text-warning"></i>
+                                    <strong class="text-dark">Email Verification Required</strong>
+                                </div>
+                                <p class="mb-0 text-muted small">
+                                    Your vendor partner registration has been recorded. Please check your inbox and click the verification link before logging in.
+                                </p>
+                            </div>
+                            <div class="card bg-light border-0 shadow-sm">
+                                <div class="card-body p-4">
+                                    <p class="text-muted mb-3 small">
+                                        After verifying your email address, you will be directed to the <strong>Vendor Login</strong> page to access your vendor panel.
                                     </p>
-                                    <p class="text-muted mb-4">
-                                        Please verify your email by clicking the <strong>"Verify Email"</strong> button sent to your inbox.<br>
-                                        Once verified, you will be automatically logged in and can start using your account.
-                                    </p>
-                                    <a href="{{ url('login') }}" class="btn btn-primary w-100">Go to Login</a>
+                                    <a href="{{ route('superadmin.vendors.login') }}" class="btn btn-primary w-100 mb-2">
+                                        <i class="ti ti-login me-1"></i> Go to Vendor Login
+                                    </a>
+                                    <span class="text-muted small d-block">Redirecting to Vendor Login in <span id="countdownSecs">5</span> seconds...</span>
                                 </div>
                             </div>
                         </div>
@@ -445,7 +444,16 @@
                         $('#registerForm').fadeOut(300, function() {
                             $('#registrationSuccess').fadeIn(300);
                         });
-                        showToast('Thank you for registering!', 'success');
+                        showToast(response.message || 'Vendor account created successfully!', 'success');
+                        let count = 5;
+                        const timer = setInterval(function() {
+                            count--;
+                            $('#countdownSecs').text(count);
+                            if (count <= 0) {
+                                clearInterval(timer);
+                                window.location.href = response.redirect || "{{ route('superadmin.vendors.login') }}";
+                            }
+                        }, 1000);
                     } else {
                         showToast(response.message || "Something went wrong.", 'error');
                     }

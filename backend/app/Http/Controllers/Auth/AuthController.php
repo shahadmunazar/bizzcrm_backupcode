@@ -2,11 +2,12 @@
 namespace App\Http\Controllers\Auth;
 use App\Helpers\LeadFieldsHelper;
 use App\Http\Controllers\Controller;
-use App\Jobs\{CreateStandardShiftJob, DepartmentCreateJob, MarkAllUsersAbsentJob, SendEmailVerifiedJob, SendOtpJob, SendPasswordResetSuccessJob, SendRegistrationVerifyJob, SendResetPasswordEmailJob};
-use App\Models\{Box, BoxUser, City, Country, EmployeeType, LeadSubStatus, State, User, WorkModeSetting, DealStatus, DealPeriod, DealSource, DealPriority, DealTag, DealStage, Deal};
+use App\Jobs\{CreateStandardShiftJob, DepartmentCreateJob, MarkAllUsersAbsentJob, SendEmailVerifiedJob, SendOtpJob, SendPasswordResetSuccessJob, SendRegistrationVerifyJob, SendResetPasswordEmailJob, SendVendorRegistrationVerifyJob};
+use App\Models\{Box, BoxUser, City, Country, EmployeeType, LeadSubStatus, State, User, WorkModeSetting, DealStatus, DealPeriod, DealSource, DealPriority, DealTag, DealStage, Deal, Vendor};
+use Spatie\Permission\Models\Role;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\{Auth, DB, Hash, Log, Validator};
+use Illuminate\Support\Facades\{Auth, Cache, DB, Hash, Log, Validator};
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
@@ -106,10 +107,56 @@ class AuthController extends Controller
         return view('auth.forget');
     }
 
-    public function showRegisterForm()
+    public function showRegisterForm(Request $request)
     {
         $industries = \App\Models\MasterIndustry::where('status', true)->orderBy('name', 'asc')->get();
-        return view('auth.register', compact('industries'));
+        $refCode = $request->query('ref');
+        $email = $request->query('email');
+        $referringVendor = null;
+        if ($refCode) {
+            $referringVendor = Vendor::with('user')->where('referral_code', trim($refCode))->first();
+            if (!$email && $referringVendor) {
+                $invitation = \App\Models\VendorReferralInvitation::where('vendor_id', $referringVendor->id)
+                    ->where('status', 'pending')
+                    ->latest('id')
+                    ->first();
+                if ($invitation) {
+                    $email = $invitation->recipient_email;
+                }
+            }
+        }
+        return view('auth.register', compact('industries', 'referringVendor', 'refCode', 'email'));
+    }
+
+    public function checkReferralCode(Request $request)
+    {
+        $code = trim($request->get('code', ''));
+        if (empty($code)) {
+            return response()->json(['valid' => false]);
+        }
+
+        $vendor = Vendor::with('user')->where('referral_code', $code)->first();
+        if ($vendor && $vendor->status === 'approved') {
+            $latestInvitation = \App\Models\VendorReferralInvitation::where('vendor_id', $vendor->id)
+                ->where('status', 'pending')
+                ->latest('id')
+                ->first();
+
+            return response()->json([
+                'valid' => true,
+                'vendor' => [
+                    'company_name' => $vendor->company_name ?: ($vendor->user->name ?? 'Vendor Partner'),
+                    'contact_name' => $vendor->user->name ?? '',
+                    'code' => $vendor->referral_code,
+                    'email' => $latestInvitation ? $latestInvitation->recipient_email : '',
+                ]
+            ]);
+        }
+
+        return response()->json([
+            'valid' => false,
+            'message' => 'The referral code is invalid or the referring vendor is inactive.'
+        ]);
     }
 
     public function reset_page()
@@ -142,6 +189,18 @@ class AuthController extends Controller
                     'message' => 'User not found for the given mobile or email.',
                 ], 404);
             }
+
+            if ($user->hasRole('vendor') || $user->vendor()->exists()) {
+                return response()->json([
+                    'status' => 403,
+                    'success' => false,
+                    'is_vendor' => true,
+                    'message' => 'Your account is registered as a vendor. Please log in through the Vendor Login portal.',
+                    'redirect' => route('superadmin.vendors.login'),
+                    'redirect_url' => route('superadmin.vendors.login'),
+                ], 403);
+            }
+
             // Check if email exists and is not verified
             if ($user->email && is_null($user->email_verified_at)) {
                 return response()->json([
@@ -461,7 +520,7 @@ class AuthController extends Controller
         }
     }
 
-    public function verify($token)
+    public function verify(Request $request, $token)
     {
         // Find user by token
         $user = User::where('remember_token', $token)->first();
@@ -470,57 +529,76 @@ class AuthController extends Controller
             return redirect('/login')->with('error', 'Invalid or expired verification link.');
         }
 
-        // Optional: Expiry check (uncomment if using token expiration)
-        // if (now()->gt($user->token_expires_at)) {
-        //     return redirect('/login')->with('error', 'Verification link has expired.');
-        // }
+        $isVendor = $user->hasRole('vendor') || $user->vendor()->exists();
 
         // Check if email is not already verified
         if (!$user->email_verified_at) {
             $user->email_verified_at = now();
+            $user->status = 'Enabled';
             $user->save();
 
-            // Enable the box user account
-            $boxUser = BoxUser::where('user_id', $user->id)->first();
-            if ($boxUser) {
-                $boxUser->status = 'Enabled';
-                $boxUser->save();
+            // Enable the box user account only if regular box user
+            if (!$isVendor) {
+                $boxUser = BoxUser::where('user_id', $user->id)->first();
+                if ($boxUser) {
+                    $boxUser->status = 'Enabled';
+                    $boxUser->save();
+                }
+
+                // Send confirmation email
+                dispatch(new SendEmailVerifiedJob($user));
+            }
+        }
+
+        // Retrieve plain password from encrypted query or cache
+        $plainPassword = null;
+        if ($request->filled('p')) {
+            try {
+                $plainPassword = decrypt($request->query('p'));
+            } catch (\Throwable $th) {
+                $plainPassword = null;
+            }
+        }
+        if (!$plainPassword) {
+            $plainPassword = Cache::get('verify_pwd_' . $token);
+        }
+
+        $encryptedParam = $plainPassword ? encrypt($plainPassword) : null;
+
+        if ($isVendor) {
+            $queryData = [
+                'email' => $user->email,
+                'verified' => 1,
+            ];
+            if ($encryptedParam) {
+                $queryData['p'] = $encryptedParam;
+                $queryData['autologin'] = 1;
             }
 
-            // Send confirmation email
-            dispatch(new SendEmailVerifiedJob($user));
+            return redirect()->route('superadmin.vendors.login', $queryData)->with([
+                'success' => 'Your vendor email has been verified successfully! Your login credentials have been pre-filled. Logging you in automatically...',
+                'prefill_email' => $user->email,
+                'prefill_password' => $plainPassword,
+                'auto_login' => !empty($plainPassword),
+            ]);
         }
 
-        // Do not auto-login vendors since they require admin approval
-        if (!$user->hasRole('vendor')) {
-            // Auto-login the user
-            Auth::login($user);
+        // Regular user flow
+        $queryData = [
+            'email' => $user->email,
+            'verified' => 1,
+        ];
+        if ($encryptedParam) {
+            $queryData['p'] = $encryptedParam;
+            $queryData['autologin'] = 1;
         }
 
-        // Determine redirect URL based on role (reusing logic from verifyOtp)
-        $boxUserEntry = BoxUser::where('user_id', $user->id)->first();
-        $box = $boxUserEntry ? Box::find($boxUserEntry->box_id) : null;
-        $boxSlug = $box->slug ?? null;
-
-        $redirectTo = match (true) {
-            $user->hasRole('superadmin') => route('superadmin.dashboard', ['box_slug' => $boxSlug]),
-            $user->hasRole('admin'),
-            $user->hasRole('manager') => route('admin.dashboard', ['box_slug' => $boxSlug]),
-            $user->hasRole('employee') => route('employee.dashboard', ['box_slug' => $boxSlug]),
-            $user->hasRole('deals') => route('deals.dashboard', ['box_slug' => $boxSlug]),
-            $user->hasRole('project'),
-            $user->hasRole('project-manager') => route('project.dashboard', ['box_slug' => $boxSlug]),
-            $user->hasRole('tracking') => route('tracking.dashboard', ['box_slug' => $boxSlug]),
-            $user->hasRole('leads') => route('leads.dashboard', ['box_slug' => $boxSlug]),
-            $user->hasRole('vendor') => route('superadmin.vendors.login'),
-            default => route('home', ['box_slug' => $boxSlug]),
-        };
-
-        if ($user->hasRole('vendor')) {
-            return redirect($redirectTo)->with('success', 'Your email has been verified! Please wait for admin approval to log in.');
-        }
-
-        return redirect($redirectTo)->with('success', 'Your account has been verified and you are now logged in.');
+        return redirect()->route('login', $queryData)->with([
+            'success' => 'Your email has been verified successfully! Your login credentials have been pre-filled. Logging you in automatically...',
+            'prefill_email' => $user->email,
+            'prefill_password' => $plainPassword,
+            'auto_login' => !empty($plainPassword),
+        ]);
     }
 
     public function SearchCountry(Request $request)
@@ -585,9 +663,7 @@ class AuthController extends Controller
             'city_id' => 'required|string|max:100',
             'pincode' => 'required|digits_between:4,10',
             'address' => 'required|string|max:255',
-            'referral_code' => 'nullable|string|max:50|exists:vendors,referral_code',
-        ], [
-            'referral_code.exists' => 'The provided referral code is invalid or does not exist.'
+            'referral_code' => 'nullable|string|max:50',
         ]);
 
         if ($validator->fails()) {
@@ -597,6 +673,26 @@ class AuthController extends Controller
             ], 422);
         }
 
+        $referringVendor = null;
+        if ($request->filled('referral_code')) {
+            $referringVendor = Vendor::where('referral_code', trim($request->referral_code))->first();
+            if (!$referringVendor || $referringVendor->status === 'rejected') {
+                return response()->json([
+                    'success' => false,
+                    'errors' => ['referral_code' => ['The provided referral code is invalid or the referring vendor is inactive.']],
+                ], 422);
+            }
+
+            // Prevent self-referral
+            if ($referringVendor->user && ($referringVendor->user->email === $request->email || $referringVendor->user->mobile === $request->phone)) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => ['referral_code' => ['You cannot use your own referral code for registration.']],
+                ], 422);
+            }
+        }
+
+        // Standard Regular User & Box Registration Flow (When registering via /register)
         if ($request->filled('phone')) {
             $duplicatePhone = BoxUser::where('phone', $request->phone)
                 ->with('box')
@@ -632,6 +728,7 @@ class AuthController extends Controller
         try {
             $tempPassword = Str::random(10);
             $token = Str::random(60);
+            Cache::put('verify_pwd_' . $token, $tempPassword, now()->addDays(7));
             $user = User::where('email', $request->email)->first();
             if ($user) {
                 if ($user->email_verified_at !== null) {
@@ -700,6 +797,23 @@ class AuthController extends Controller
                 'city_id' => $request->city_id,
                 'start_date' => Carbon::now(),
             ]);
+
+            if ($referringVendor) {
+                \App\Models\VendorReferralInvitation::updateOrCreate(
+                    [
+                        'vendor_id' => $referringVendor->id,
+                        'recipient_email' => strtolower(trim($user->email)),
+                    ],
+                    [
+                        'referral_code' => $referringVendor->referral_code,
+                        'referral_url' => route('register', ['ref' => $referringVendor->referral_code]),
+                        'status' => 'joined',
+                        'registered_box_id' => $box->id,
+                        'registered_at' => now(),
+                    ]
+                );
+            }
+
             dispatch(new DepartmentCreateJob(
                 $box->id,
             ));
@@ -984,7 +1098,9 @@ class AuthController extends Controller
             ));
             return response()->json([
                 'success' => true,
+                'is_vendor' => false,
                 'message' => 'Registration completed successfully. Please check your email to verify your account.',
+                'redirect' => route('login'),
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -1021,10 +1137,29 @@ class AuthController extends Controller
             }
             $tempPassword = Str::random(10);
             $token = Str::random(60);
+            Cache::put('verify_pwd_' . $token, $tempPassword, now()->addDays(7));
             $user->update([
                 'password' => Hash::make($tempPassword),
                 'remember_token' => $token,
             ]);
+
+            if ($user->hasRole('vendor') || $user->vendor()->exists()) {
+                $vendor = $user->vendor;
+                dispatch(new SendVendorRegistrationVerifyJob(
+                    $user->name,
+                    $user->email,
+                    $tempPassword,
+                    $token,
+                    $vendor ? $vendor->company_name : null,
+                    $vendor ? $vendor->referral_code : null
+                ));
+                return response()->json([
+                    'success' => true,
+                    'is_vendor' => true,
+                    'message' => 'Verification instructions have been resent to your email. Please check your inbox.',
+                ]);
+            }
+
             dispatch(new SendRegistrationVerifyJob(
                 $user->name,
                 $user->email,
@@ -1059,6 +1194,16 @@ class AuthController extends Controller
                 'success' => false,
                 'error' => 'We couldn’t find an account with this email address.',
             ], 422);
+        }
+
+        if ($user->hasRole('vendor') || $user->vendor()->exists()) {
+            return response()->json([
+                'success' => false,
+                'is_vendor' => true,
+                'error' => 'Your account is registered as a vendor. Please log in through the Vendor Login portal.',
+                'redirect' => route('superadmin.vendors.login'),
+                'redirect_url' => route('superadmin.vendors.login'),
+            ], 403);
         }
 
         if ($user->email_verified_at === null) {
@@ -1318,14 +1463,24 @@ class AuthController extends Controller
             // Instead, just 'leave impersonation' and redirect to superadmin company list.
             if ($request->session()->has('impersonated_by')) {
                 $originalUserId = $request->session()->get('impersonated_by');
+                $isVendor = $request->session()->get('is_vendor_impersonation', false);
+                $storedBoxSlug = $request->session()->get('impersonated_box_slug');
+
                 Auth::loginUsingId($originalUserId);
-                $request->session()->forget('impersonated_by');
+                $request->session()->forget(['impersonated_by', 'is_vendor_impersonation', 'impersonated_box_slug']);
                 
                 // Get the superadmin box slug
-                $superadminBox = \App\Models\Box::where('superadmin_id', $originalUserId)->first();
-                $redirectSlug = $superadminBox ? $superadminBox->slug : 'demobizzcom';
+                if (!$storedBoxSlug) {
+                    $superadminBox = \App\Models\Box::where('superadmin_id', $originalUserId)->first();
+                    $storedBoxSlug = $superadminBox ? $superadminBox->slug : 'demobizzcom';
+                }
 
-                return redirect()->route('superadmin.company', ['box_slug' => $redirectSlug])
+                if ($isVendor) {
+                    return redirect()->route('superadmin.vendors.index', ['box_slug' => $storedBoxSlug])
+                                   ->with('success', 'You have left vendor impersonation mode and returned to vendors list.');
+                }
+
+                return redirect()->route('superadmin.company', ['box_slug' => $storedBoxSlug])
                                ->with('success', 'You have left the impersonated session.');
             }
 

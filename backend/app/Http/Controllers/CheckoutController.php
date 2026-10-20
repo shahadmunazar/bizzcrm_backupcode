@@ -337,7 +337,7 @@ class CheckoutController extends Controller
                             'transaction_amount' => $transactionAmount,
                             'commission_percentage' => $percentage,
                             'commission_amount' => $commissionAmount,
-                            'status' => 'pending',
+                            'status' => 'unpaid',
                         ]);
                     }
                 }

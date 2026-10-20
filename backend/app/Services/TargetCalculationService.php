@@ -75,97 +75,101 @@ class TargetCalculationService
             $endOfMonth = now()->endOfMonth();
         }
 
-        $metricsMap = [];
-        foreach ($userIds as $uid) {
-            $metricsMap[$uid] = [
-                'New Lead' => 0,
-                'No of task Closed manually' => 0,
-                'No of Matured' => 0,
-                'Amount of Matured' => 0,
-                'Sales Amount' => 0,
-                'New Customer' => 0,
-                'Customer Visit' => 0,
-                'No of Call Outgoing + Incoming' => 0,
-            ];
-        }
+        $cacheKey = "target_metrics_" . ($boxId ?: 0) . "_" . md5(implode(',', $userIds) . '_' . ($startDateStr ?: 'cur') . '_' . ($endDateStr ?: 'cur'));
 
-        // 1. New Lead
-        $leadQ = \App\Models\Lead::whereIn('assigned_to', $userIds)
-            ->whereBetween('created_at', [$startOfMonth, $endOfMonth]);
-        if ($boxId) $leadQ->where('box_id', $boxId);
-        $newLeads = $leadQ->groupBy('assigned_to')
-            ->selectRaw('assigned_to, count(*) as cnt')
-            ->pluck('cnt', 'assigned_to');
-        foreach ($newLeads as $uid => $cnt) {
-            if (isset($metricsMap[$uid])) $metricsMap[$uid]['New Lead'] = (int)$cnt;
-        }
-
-        // 2. No of task Closed manually
-        $actQ = \App\Models\Activity::whereIn('assigned_to', $userIds)
-            ->where('status', 'Close')
-            ->whereBetween('completed_date', [$startOfMonth, $endOfMonth]);
-        if ($boxId) $actQ->where('box_id', $boxId);
-        $closedTasks = $actQ->groupBy('assigned_to')
-            ->selectRaw('assigned_to, count(*) as cnt')
-            ->pluck('cnt', 'assigned_to');
-        foreach ($closedTasks as $uid => $cnt) {
-            if (isset($metricsMap[$uid])) $metricsMap[$uid]['No of task Closed manually'] = (int)$cnt;
-        }
-
-        // 3 & 4. No of Matured, Amount of Matured & Sales Amount
-        $maturedQ = \App\Models\Lead::whereIn('assigned_to', $userIds)
-            ->where('is_matured', 'Yes')
-            ->whereBetween('updated_at', [$startOfMonth, $endOfMonth]);
-        if ($boxId) $maturedQ->where('box_id', $boxId);
-        $maturedData = $maturedQ->groupBy('assigned_to')
-            ->selectRaw('assigned_to, count(*) as cnt, coalesce(sum(amount), 0) as total_amount')
-            ->get();
-        foreach ($maturedData as $row) {
-            if (isset($metricsMap[$row->assigned_to])) {
-                $metricsMap[$row->assigned_to]['No of Matured'] = (int)$row->cnt;
-                $metricsMap[$row->assigned_to]['Amount of Matured'] = (float)$row->total_amount;
-                $metricsMap[$row->assigned_to]['Sales Amount'] = (float)$row->total_amount;
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 60, function() use ($userIds, $startOfMonth, $endOfMonth, $boxId) {
+            $metricsMap = [];
+            foreach ($userIds as $uid) {
+                $metricsMap[$uid] = [
+                    'New Lead' => 0,
+                    'No of task Closed manually' => 0,
+                    'No of Matured' => 0,
+                    'Amount of Matured' => 0,
+                    'Sales Amount' => 0,
+                    'New Customer' => 0,
+                    'Customer Visit' => 0,
+                    'No of Call Outgoing + Incoming' => 0,
+                ];
             }
-        }
 
-        // 5. New Customer
-        $custQ = \App\Models\Lead::whereIn('assigned_to', $userIds)
-            ->where('status', 'Customer')
-            ->whereBetween('updated_at', [$startOfMonth, $endOfMonth]);
-        if ($boxId) $custQ->where('box_id', $boxId);
-        $customers = $custQ->groupBy('assigned_to')
-            ->selectRaw('assigned_to, count(*) as cnt')
-            ->pluck('cnt', 'assigned_to');
-        foreach ($customers as $uid => $cnt) {
-            if (isset($metricsMap[$uid])) $metricsMap[$uid]['New Customer'] = (int)$cnt;
-        }
+            // 1. New Lead
+            $leadQ = \App\Models\Lead::whereIn('assigned_to', $userIds)
+                ->whereBetween('created_at', [$startOfMonth, $endOfMonth]);
+            if ($boxId) $leadQ->where('box_id', $boxId);
+            $newLeads = $leadQ->groupBy('assigned_to')
+                ->selectRaw('assigned_to, count(*) as cnt')
+                ->pluck('cnt', 'assigned_to');
+            foreach ($newLeads as $uid => $cnt) {
+                if (isset($metricsMap[$uid])) $metricsMap[$uid]['New Lead'] = (int)$cnt;
+            }
 
-        // 6. Customer Visit
-        $visitQ = \App\Models\Activity::whereIn('assigned_to', $userIds)
-            ->where('activity_type', 'Visit')
-            ->where('status', 'Close')
-            ->whereBetween('completed_date', [$startOfMonth, $endOfMonth]);
-        if ($boxId) $visitQ->where('box_id', $boxId);
-        $visits = $visitQ->groupBy('assigned_to')
-            ->selectRaw('assigned_to, count(*) as cnt')
-            ->pluck('cnt', 'assigned_to');
-        foreach ($visits as $uid => $cnt) {
-            if (isset($metricsMap[$uid])) $metricsMap[$uid]['Customer Visit'] = (int)$cnt;
-        }
+            // 2. No of task Closed manually
+            $actQ = \App\Models\Activity::whereIn('assigned_to', $userIds)
+                ->where('status', 'Close')
+                ->whereBetween('completed_date', [$startOfMonth, $endOfMonth]);
+            if ($boxId) $actQ->where('box_id', $boxId);
+            $closedTasks = $actQ->groupBy('assigned_to')
+                ->selectRaw('assigned_to, count(*) as cnt')
+                ->pluck('cnt', 'assigned_to');
+            foreach ($closedTasks as $uid => $cnt) {
+                if (isset($metricsMap[$uid])) $metricsMap[$uid]['No of task Closed manually'] = (int)$cnt;
+            }
 
-        // 7. No of Call Outgoing + Incoming
-        $callQ = \App\Models\Activity::whereIn('assigned_to', $userIds)
-            ->where('activity_type', 'like', '%Call%')
-            ->whereBetween('activity_date', [$startOfMonth, $endOfMonth]);
-        if ($boxId) $callQ->where('box_id', $boxId);
-        $calls = $callQ->groupBy('assigned_to')
-            ->selectRaw('assigned_to, count(*) as cnt')
-            ->pluck('cnt', 'assigned_to');
-        foreach ($calls as $uid => $cnt) {
-            if (isset($metricsMap[$uid])) $metricsMap[$uid]['No of Call Outgoing + Incoming'] = (int)$cnt;
-        }
+            // 3 & 4. No of Matured, Amount of Matured & Sales Amount
+            $maturedQ = \App\Models\Lead::whereIn('assigned_to', $userIds)
+                ->where('is_matured', 'Yes')
+                ->whereBetween('updated_at', [$startOfMonth, $endOfMonth]);
+            if ($boxId) $maturedQ->where('box_id', $boxId);
+            $maturedData = $maturedQ->groupBy('assigned_to')
+                ->selectRaw('assigned_to, count(*) as cnt, coalesce(sum(amount), 0) as total_amount')
+                ->get();
+            foreach ($maturedData as $row) {
+                if (isset($metricsMap[$row->assigned_to])) {
+                    $metricsMap[$row->assigned_to]['No of Matured'] = (int)$row->cnt;
+                    $metricsMap[$row->assigned_to]['Amount of Matured'] = (float)$row->total_amount;
+                    $metricsMap[$row->assigned_to]['Sales Amount'] = (float)$row->total_amount;
+                }
+            }
 
-        return $metricsMap;
+            // 5. New Customer
+            $custQ = \App\Models\Lead::whereIn('assigned_to', $userIds)
+                ->where('status', 'Customer')
+                ->whereBetween('updated_at', [$startOfMonth, $endOfMonth]);
+            if ($boxId) $custQ->where('box_id', $boxId);
+            $customers = $custQ->groupBy('assigned_to')
+                ->selectRaw('assigned_to, count(*) as cnt')
+                ->pluck('cnt', 'assigned_to');
+            foreach ($customers as $uid => $cnt) {
+                if (isset($metricsMap[$uid])) $metricsMap[$uid]['New Customer'] = (int)$cnt;
+            }
+
+            // 6. Customer Visit
+            $visitQ = \App\Models\Activity::whereIn('assigned_to', $userIds)
+                ->where('activity_type', 'Visit')
+                ->where('status', 'Close')
+                ->whereBetween('completed_date', [$startOfMonth, $endOfMonth]);
+            if ($boxId) $visitQ->where('box_id', $boxId);
+            $visits = $visitQ->groupBy('assigned_to')
+                ->selectRaw('assigned_to, count(*) as cnt')
+                ->pluck('cnt', 'assigned_to');
+            foreach ($visits as $uid => $cnt) {
+                if (isset($metricsMap[$uid])) $metricsMap[$uid]['Customer Visit'] = (int)$cnt;
+            }
+
+            // 7. No of Call Outgoing + Incoming
+            $callQ = \App\Models\Activity::whereIn('assigned_to', $userIds)
+                ->where('activity_type', 'like', '%Call%')
+                ->whereBetween('activity_date', [$startOfMonth, $endOfMonth]);
+            if ($boxId) $callQ->where('box_id', $boxId);
+            $calls = $callQ->groupBy('assigned_to')
+                ->selectRaw('assigned_to, count(*) as cnt')
+                ->pluck('cnt', 'assigned_to');
+            foreach ($calls as $uid => $cnt) {
+                if (isset($metricsMap[$uid])) $metricsMap[$uid]['No of Call Outgoing + Incoming'] = (int)$cnt;
+            }
+
+            return $metricsMap;
+        });
     }
 
     /**
@@ -177,7 +181,7 @@ class TargetCalculationService
         if (!$boxUser || !$boxUser->user_id) return 0;
         
         $userId = $boxUser->user_id;
-        $userMetrics = $metricsMap[$userId] ?? [];
+        $userMetrics = isset($metricsMap[$userId]) ? $metricsMap[$userId] : $metricsMap;
         $template = $assignment->template;
         if (!$template || !$template->metrics) return 0;
 

@@ -27,10 +27,14 @@ class VendorPercentageController extends Controller
             ['percentage' => $request->percentage]
         );
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Vendor percentage updated successfully.',
-            'percentage' => $request->percentage
-        ]);
+        if ($request->ajax() || $request->wantsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Vendor percentage updated successfully.',
+                'percentage' => (string) $request->percentage
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Vendor percentage updated successfully.');
     }
 }

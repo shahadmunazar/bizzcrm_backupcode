@@ -466,11 +466,49 @@ class LeadService
             }
         }
 
-        if (!in_array($boxUser->staff_role, ['admin', 'superadmin'])) {
-            if ($isCustomQuery) {
-                $query->where('leads.assigned_to', $user->id);
+        $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
+        $isBoxAdmin = $boxUser && in_array(strtolower($boxUser->staff_role ?? ''), ['admin', 'superadmin']);
+
+        $scope = $params['lead_scope'] ?? null;
+        $teamMemberIds = $params['team_member_ids'] ?? [];
+        if (is_string($teamMemberIds)) {
+            $teamMemberIds = array_filter(array_map('trim', explode(',', $teamMemberIds)));
+        }
+
+        $assignedCol = $isCustomQuery ? 'leads.assigned_to' : 'assigned_to';
+
+        if ($scope === 'individual') {
+            $query->where($assignedCol, $user->id);
+        } elseif ($scope === 'team') {
+            if (!empty($teamMemberIds)) {
+                $query->whereIn($assignedCol, $teamMemberIds);
             } else {
-                $query->where('assigned_to', $user->id);
+                if (!$isGlobalAdmin && !$isBoxAdmin) {
+                    $subordinateIds = \App\Models\BoxUser::getAllSubordinateIds($box->id, $user->id, $boxUser);
+                    $subordinateUserIds = \App\Models\BoxUser::whereIn('id', $subordinateIds)->pluck('user_id')->toArray();
+                    $allRelevantUserIds = array_unique(array_merge([$user->id], $subordinateUserIds));
+                    $query->whereIn($assignedCol, $allRelevantUserIds);
+                }
+            }
+        } elseif ($scope === 'all') {
+            if (!$isGlobalAdmin && !$isBoxAdmin) {
+                $subordinateIds = \App\Models\BoxUser::getAllSubordinateIds($box->id, $user->id, $boxUser);
+                $subordinateUserIds = \App\Models\BoxUser::whereIn('id', $subordinateIds)->pluck('user_id')->toArray();
+                $allRelevantUserIds = array_unique(array_merge([$user->id], $subordinateUserIds));
+                $query->whereIn($assignedCol, $allRelevantUserIds);
+            }
+        } else {
+            if (!empty($teamMemberIds)) {
+                $query->whereIn($assignedCol, $teamMemberIds);
+            } elseif (!$isGlobalAdmin && !$isBoxAdmin) {
+                $subordinateIds = \App\Models\BoxUser::getAllSubordinateIds($box->id, $user->id, $boxUser);
+                if (!empty($subordinateIds)) {
+                    $subordinateUserIds = \App\Models\BoxUser::whereIn('id', $subordinateIds)->pluck('user_id')->toArray();
+                    $allRelevantUserIds = array_unique(array_merge([$user->id], $subordinateUserIds));
+                    $query->whereIn($assignedCol, $allRelevantUserIds);
+                } else {
+                    $query->where($assignedCol, $user->id);
+                }
             }
         }
 
@@ -611,6 +649,70 @@ class LeadService
             'assignees' => $assignees,
             'departments' => $departments,
             'designations' => $designations,
+        ];
+    }
+
+    /**
+     * Get team members and hierarchical tree for leads scoping
+     */
+    public function getTeamHierarchy($box, $user, $boxUser)
+    {
+        $boxId = $box->id;
+        $userId = $user->id;
+
+        $isGlobalAdmin = $user->hasRole(['admin', 'superadmin'], 'web');
+        $isBoxAdmin = $boxUser && in_array(strtolower($boxUser->staff_role ?? ''), ['admin', 'superadmin']);
+
+        $subordinateIds = \App\Models\BoxUser::getAllSubordinateIds($boxId, $userId, $boxUser);
+        if (empty($subordinateIds) && ($isGlobalAdmin || $isBoxAdmin)) {
+            $subordinateIds = \App\Models\BoxUser::where('box_id', $boxId)->where('id', '!=', $boxUser->id)->pluck('id')->toArray();
+        }
+
+        $teamMembers = \App\Models\BoxUser::whereIn('id', $subordinateIds)
+            ->with(['user:id,name,email', 'departmentRelation:id,name', 'designationRelation:id,name'])
+            ->get()
+            ->map(function ($bu) use ($boxUser) {
+                $parentId = $bu->reporting_manager_id;
+                $userName = $bu->user->name ?? trim(($bu->first_name ?? '') . ' ' . ($bu->last_name ?? '')) ?: 'Unknown';
+
+                return [
+                    'id' => $bu->user_id,
+                    'box_user_id' => $bu->id,
+                    'name' => $userName,
+                    'email' => $bu->user->email ?? '--',
+                    'department' => $bu->departmentRelation->name ?? null,
+                    'designation' => $bu->designationRelation->name ?? null,
+                    'employee_id' => $bu->employee_id ?? null,
+                    'parent_box_user_id' => $parentId,
+                    'is_root' => ($parentId === $boxUser->id || !$parentId)
+                ];
+            })
+            ->values()
+            ->toArray();
+
+        // Build hierarchical tree
+        $rootBoxUserId = $boxUser->id;
+        $mappedArr = [];
+        foreach ($teamMembers as $item) {
+            $item['children'] = [];
+            $mappedArr[$item['box_user_id']] = $item;
+        }
+
+        $tree = [];
+        foreach ($mappedArr as $id => &$mappedElem) {
+            $parentBoxUserId = $mappedElem['parent_box_user_id'];
+            if ($parentBoxUserId && isset($mappedArr[$parentBoxUserId]) && $parentBoxUserId != $rootBoxUserId) {
+                $mappedArr[$parentBoxUserId]['children'][] = &$mappedElem;
+            } else {
+                $tree[] = &$mappedElem;
+            }
+        }
+        unset($mappedElem);
+
+        return [
+            'root_box_user_id' => $rootBoxUserId,
+            'data' => $teamMembers,
+            'tree' => $tree
         ];
     }
 }

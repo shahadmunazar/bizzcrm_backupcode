@@ -919,4 +919,38 @@ class LeadApiController extends Controller
         $cities = \App\Models\City::where('state_id', $state_id)->select('id', 'name')->get();
         return response()->json(['success' => true, 'data' => $cities]);
     }
+
+    /**
+     * Get team members and hierarchical tree for leads scoping
+     */
+    public function getTeamMembers(Request $request, $box_slug)
+    {
+        $box = Box::where('slug', $box_slug)->first();
+        if (!$box) {
+            return response()->json(['success' => false, 'message' => 'Box not found'], 404);
+        }
+
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        $boxUser = BoxUser::where('box_id', $box->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$boxUser) {
+            return response()->json(['success' => false, 'message' => 'User does not belong to this box'], 403);
+        }
+
+        $result = $this->leadService->getTeamHierarchy($box, $user, $boxUser);
+
+        return response()->json([
+            'success' => true,
+            'status' => 'success',
+            'root_box_user_id' => $result['root_box_user_id'],
+            'data' => $result['data'],
+            'tree' => $result['tree']
+        ]);
+    }
 }

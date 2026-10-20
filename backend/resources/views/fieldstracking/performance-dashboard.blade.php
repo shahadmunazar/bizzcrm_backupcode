@@ -430,7 +430,7 @@ $(document).ready(function() {
             let lastDay = new Date(year, month, 0).getDate();
             let endDate = monthFilter + '-' + (lastDay < 10 ? '0' + lastDay : lastDay);
             
-            url += '&start_date=' + startDate + '&end_date=' + endDate;
+            url += '&start_date=' + startDate + '&end_date=' + endDate + '&month=' + monthFilter + '&year=' + year;
         }
         
         if (deptId) url += '&department_id=' + deptId;

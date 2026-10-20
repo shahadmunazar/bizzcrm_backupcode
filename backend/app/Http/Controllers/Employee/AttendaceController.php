@@ -594,11 +594,11 @@ class AttendaceController extends BaseController
                 ];
             });
 
-            // ✅ Add report period
+            //  Add report period
             $startOfMonth = Carbon::createFromDate($year, $month, 1)->startOfMonth()->toDateString();
             $endOfMonth = Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateString();
 
-            // ✅ Final Response
+            //  Final Response
             $responseData = [
                 'box' => [
                     'id' => $box->id,
@@ -2176,8 +2176,16 @@ class AttendaceController extends BaseController
     public function AdminTotalTasksStats(Request $request)
     {
         try {
-            $userId = Auth::id();
-            $box = \App\Models\Box::where('superadmin_id', $userId)->firstOrFail();
+            $boxSlug = $request->route('box_slug') ?? $request->get('box_slug');
+            $box = $boxSlug ? \App\Models\Box::where('slug', $boxSlug)->first() : null;
+            if (!$box) {
+                $userId = Auth::id();
+                $box = \App\Models\Box::where('superadmin_id', $userId)->first()
+                    ?? \App\Models\BoxUser::where('user_id', $userId)->first()?->box;
+            }
+            if (!$box) {
+                throw new \Illuminate\Database\Eloquent\ModelNotFoundException('Box not found.');
+            }
             
             $startDateStr = $request->get('start_date');
             $endDateStr = $request->get('end_date');
@@ -2266,8 +2274,16 @@ class AttendaceController extends BaseController
     {
         try {
             $start = microtime(true);
-            $userId = Auth::id();
-            $box = Box::where('superadmin_id', $userId)->firstOrFail();
+            $boxSlug = $request->route('box_slug') ?? $request->get('box_slug');
+            $box = $boxSlug ? Box::where('slug', $boxSlug)->first() : null;
+            if (!$box) {
+                $userId = Auth::id();
+                $box = Box::where('superadmin_id', $userId)->first()
+                    ?? BoxUser::where('user_id', $userId)->first()?->box;
+            }
+            if (!$box) {
+                throw new \Illuminate\Database\Eloquent\ModelNotFoundException('Box not found.');
+            }
             
             $startDateStr = $request->get('start_date');
             $endDateStr = $request->get('end_date');

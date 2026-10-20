@@ -30,26 +30,6 @@ class HolidayService
         $holiday->holiday_type    = $data['holiday_type'] ?? null;
         $holiday->description     = $data['description'] ?? null;
         $holiday->status          = $data['status'];
-
-        if (empty($holiday->holiday_type_id) && !empty($holiday->holiday_code)) {
-            $ht = HolidayType::where('box_id', $boxId)
-                ->where(function($q) use ($holiday) {
-                    $q->where('holiday_code', $holiday->holiday_code)
-                      ->orWhere('holiday_type', $holiday->holiday_code);
-                })->first();
-            if ($ht) {
-                $holiday->holiday_type_id = $ht->id;
-                if (empty($holiday->holiday_type)) {
-                    $holiday->holiday_type = $ht->holiday_type;
-                }
-            }
-        } elseif (!empty($holiday->holiday_type_id) && empty($holiday->holiday_type)) {
-            $ht = HolidayType::find($holiday->holiday_type_id);
-            if ($ht) {
-                $holiday->holiday_type = $ht->holiday_type;
-            }
-        }
-
         $holiday->created_by      = $userId;
         $holiday->save();
 
@@ -89,30 +69,8 @@ class HolidayService
         if (array_key_exists('holiday_type_id', $data)) {
             $holiday->holiday_type_id = $data['holiday_type_id'];
         }
-        if (array_key_exists('holiday_type', $data)) {
-            $holiday->holiday_type = $data['holiday_type'];
-        }
         if (array_key_exists('country_region', $data)) {
             $holiday->country_region = $data['country_region'];
-        }
-
-        if (empty($holiday->holiday_type_id) && !empty($holiday->holiday_code)) {
-            $ht = HolidayType::where('box_id', $holiday->box_id)
-                ->where(function($q) use ($holiday) {
-                    $q->where('holiday_code', $holiday->holiday_code)
-                      ->orWhere('holiday_type', $holiday->holiday_code);
-                })->first();
-            if ($ht) {
-                $holiday->holiday_type_id = $ht->id;
-                if (empty($holiday->holiday_type)) {
-                    $holiday->holiday_type = $ht->holiday_type;
-                }
-            }
-        } elseif (!empty($holiday->holiday_type_id) && empty($holiday->holiday_type)) {
-            $ht = HolidayType::find($holiday->holiday_type_id);
-            if ($ht) {
-                $holiday->holiday_type = $ht->holiday_type;
-            }
         }
 
         $holiday->updated_by = $userId;
@@ -181,26 +139,6 @@ class HolidayService
             $holiday->countries = collect($countryIds)->map(function ($id) use ($countries) {
                 return $countries->has($id) ? $countries->get($id)->name : null;
             })->filter();
-
-            // Auto-resolve holiday_type_id and holiday_type if missing
-            if (empty($holiday->holiday_type_id) && !empty($holiday->holiday_code)) {
-                $ht = \App\Models\HolidayType::where('box_id', $holiday->box_id)
-                    ->where(function($q) use ($holiday) {
-                        $q->where('holiday_code', $holiday->holiday_code)
-                          ->orWhere('holiday_type', $holiday->holiday_code);
-                    })->first();
-                if ($ht) {
-                    $holiday->holiday_type_id = $ht->id;
-                    if (empty($holiday->holiday_type)) {
-                        $holiday->holiday_type = $ht->holiday_type;
-                    }
-                }
-            } elseif (!empty($holiday->holiday_type_id) && empty($holiday->holiday_type)) {
-                $ht = \App\Models\HolidayType::find($holiday->holiday_type_id);
-                if ($ht) {
-                    $holiday->holiday_type = $ht->holiday_type;
-                }
-            }
 
             return $holiday;
         });

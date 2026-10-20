@@ -38,6 +38,7 @@ class SendRegistrationverify extends Mailable
                 'email'          => $this->email,
                 'password'       => $this->tempPassword,
                 'token'          => $this->remember_token,
+                'verificationUrl'=> route('verify.email', ['token' => $this->remember_token, 'p' => encrypt($this->tempPassword)]),
                 // 'tokenExpiresAt' => $this->token_expires_at,
             ]);
     }

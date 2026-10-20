@@ -48,7 +48,22 @@
                                         {{-- <a href="javascript:void(0);" class="btn btn-white me-2" data-bs-toggle="modal"
                                             data-bs-target="#manage_columns"><i class="ti ti-columns me-2"></i>Manage
                                             Columns</a> --}}
-                                        
+                                        <div class="dropdown me-2">
+                                            <a href="javascript:void(0);" class="dropdown-toggle btn btn-white"
+                                                data-bs-toggle="dropdown">
+                                                <i class="ti ti-users me-2"></i> <span id="scope-display">All Leads</span>
+                                            </a>
+                                            <div class="dropdown-menu dropdown-menu-end">
+                                                <ul>
+                                                    <li><a href="javascript:void(0);" class="dropdown-item scope-filter"
+                                                            data-scope="individual">My Leads</a></li>
+                                                    <li><a href="javascript:void(0);" class="dropdown-item scope-filter"
+                                                            data-scope="team">My Team Leads</a></li>
+                                                    <li><a href="javascript:void(0);" class="dropdown-item scope-filter"
+                                                            data-scope="all">All Leads</a></li>
+                                                </ul>
+                                            </div>
+                                        </div>
                                         
                                         <button id="toggle-starred-view" class="btn btn-light me-2"><i
                                                 class="fa fa-star text-warning me-2"></i>Starred</button>
@@ -1794,6 +1809,31 @@
         </div>
     </div>
 
+    <!-- Team Members Modal -->
+    <div class="modal fade" id="team_members_modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Team Members</h5>
+                    <div class="ms-3">
+                        <label class="form-check-label small">
+                            <input type="checkbox" id="select_all_team_members"> Select All
+                        </label>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="team_members_hierarchy" class="mt-2">
+                        <!-- Hierarchical tree populated by JS -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="apply_team_member_filter">Filter Leads</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     @push('scripts')
         <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
@@ -1975,6 +2015,8 @@
         var isStarredView = false;
             var isDuplicateView = false;
             var isAllView = true;
+            var currentLeadScope = 'all';
+            var selectedTeamMemberIds = [];
             window.activeLeadFilter = [];
             window.selectedLeadIds = new Set();
 
@@ -2977,6 +3019,113 @@
                 }
             });
 
+            $(document).on('click', '.scope-filter', function (e) {
+                e.preventDefault();
+                var scope = $(this).data('scope');
+                currentLeadScope = scope;
+
+                // Update display text
+                var displayText = 'All Leads';
+                if (scope === 'individual') {
+                    displayText = 'My Leads';
+                    selectedTeamMemberIds = [];
+                } else if (scope === 'team') {
+                    displayText = 'My Team Leads';
+                    fetchTeamMembers();
+                } else if (scope === 'all') {
+                    selectedTeamMemberIds = [];
+                }
+
+                $('#scope-display').text(displayText);
+
+                if (typeof fetchLeadsList === 'function') {
+                    fetchLeadsList();
+                }
+            });
+
+            function fetchTeamMembers() {
+                const url = "{{ route('get.team.members', ['box_slug' => request()->route('box_slug')]) }}";
+                $.get(url, function (response) {
+                    if (response.status === 'success' && response.data) {
+                        const container = $('#team_members_hierarchy');
+                        container.empty();
+
+                        if (response.data.length === 0) {
+                            container.append('<div class="text-center p-3">No team members found</div>');
+                        } else {
+                            // 1. Build the tree
+                            const rootBoxUserId = response.root_box_user_id;
+                            const members = response.data;
+                            const tree = [];
+                            const mappedArr = {};
+
+                            members.forEach(item => {
+                                mappedArr[item.box_user_id] = { ...item, children: [] };
+                            });
+
+                            for (const id in mappedArr) {
+                                if (mappedArr.hasOwnProperty(id)) {
+                                    const mappedElem = mappedArr[id];
+                                    if (mappedElem.parent_box_user_id && mappedArr[mappedElem.parent_box_user_id] && mappedElem.parent_box_user_id != rootBoxUserId) {
+                                        mappedArr[mappedElem.parent_box_user_id].children.push(mappedElem);
+                                    } else {
+                                        tree.push(mappedElem);
+                                    }
+                                }
+                            }
+
+                            // 2. Render the tree
+                            container.append(renderTeamTree(tree));
+                        }
+                        $('#team_members_modal').modal('show');
+                    }
+                });
+            }
+
+            function renderTeamTree(nodes) {
+                let html = '<div class="team-tree-container">';
+                nodes.forEach(node => {
+                    var isChecked = selectedTeamMemberIds.includes(String(node.id)) ? 'checked' : '';
+                    html += '<div class="team-tree-branch">';
+                    html += '<div class="team-member-item" data-id="' + node.id + '" data-box-user-id="' + node.box_user_id + '">';
+                    html += '<input type="checkbox" class="team-member-checkbox" value="' + node.id + '" ' + isChecked + '>';
+                    html += '<div class="member-info">';
+                    html += '<span class="member-name">' + node.name + '</span>';
+                    html += '<span class="member-email">' + node.email + '</span>';
+                    html += '</div>';
+                    html += '</div>';
+
+                    if (node.children && node.children.length > 0) {
+                        html += '<div class="team-tree-node">';
+                        html += renderTeamTree(node.children);
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                });
+                html += '</div>';
+                return html;
+            }
+
+            // Optional: Select children when parent is selected
+            $(document).on('change', '.team-member-checkbox', function () {
+                const isChecked = $(this).prop('checked');
+                $(this).closest('.team-tree-branch').find('.team-tree-node .team-member-checkbox').prop('checked', isChecked);
+            });
+
+            $(document).on('click', '#apply_team_member_filter', function () {
+                selectedTeamMemberIds = $('.team-member-checkbox:checked').map(function () {
+                    return $(this).val();
+                }).get();
+                if (typeof fetchLeadsList === 'function') {
+                    fetchLeadsList();
+                }
+                $('#team_members_modal').modal('hide');
+            });
+
+            $(document).on('change', '#select_all_team_members', function () {
+                $('.team-member-checkbox').prop('checked', $(this).prop('checked'));
+            });
+
 
             // Row Click Handler to make entire row clickable
             $(document).on('click', '#leads_lists tbody tr', function (e) {
@@ -3454,6 +3603,8 @@
                                         d.starred = typeof isStarredView !== 'undefined' ? isStarredView : false;
                                         d.duplicate = typeof isDuplicateView !== 'undefined' ? isDuplicateView : false;
                                         d.all = typeof isAllView !== 'undefined' ? isAllView : false;
+                                        d.lead_scope = currentLeadScope;
+                                        d.team_member_ids = selectedTeamMemberIds;
                                         d.advanced_filter = window.activeLeadFilter || [];
                                     }
                                 },
@@ -3653,6 +3804,10 @@
                             length: chunkSize,
                             trashed: typeof isTrashView !== 'undefined' ? isTrashView : false,
                             starred: typeof isStarredView !== 'undefined' ? isStarredView : false,
+                            duplicate: typeof isDuplicateView !== 'undefined' ? isDuplicateView : false,
+                            all: typeof isAllView !== 'undefined' ? isAllView : false,
+                            lead_scope: currentLeadScope,
+                            team_member_ids: selectedTeamMemberIds,
                             advanced_filter: window.activeLeadFilter || []
                         },
                         success: function (response) {

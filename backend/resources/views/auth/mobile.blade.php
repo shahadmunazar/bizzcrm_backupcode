@@ -235,6 +235,18 @@
             .fail(xhr => {
                 $('#sendOtpBtn').prop('disabled', false).text('Send OTP');
                 const res = xhr.responseJSON;
+                if (res?.is_vendor) {
+                    $('#statusMessage').html(`
+                        <div class="alert alert-warning text-center fw-bold shadow-sm p-3">
+                            <i class="ti ti-alert-triangle fs-20 me-1"></i> ${res.message}
+                            <div class="mt-2"><a href="${res.redirect || '{{ route("superadmin.vendors.login") }}'}" class="btn btn-sm btn-primary">Go to Vendor Login</a></div>
+                        </div>
+                    `);
+                    setTimeout(() => {
+                        window.location.href = res.redirect || '{{ route("superadmin.vendors.login") }}';
+                    }, 2000);
+                    return;
+                }
                 if (xhr.status === 403 && res?.message) {
                     showUnverifiedEmailButton(res.message, user_input);
                 } else {

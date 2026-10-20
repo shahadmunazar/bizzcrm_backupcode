@@ -89,13 +89,48 @@
                             <!-- Verification alert container -->
                             <div id="verificationAlertContainer" class="mt-2"></div>
 
+                            @php
+                                $prefillEmail = session('prefill_email') ?: request('email', '');
+                                $prefillPassword = session('prefill_password', '');
+                                if (!$prefillPassword && request('p')) {
+                                    try {
+                                        $prefillPassword = decrypt(request('p'));
+                                    } catch (\Throwable $e) {
+                                        $prefillPassword = '';
+                                    }
+                                }
+                                $autoLogin = (session('auto_login') || request('autologin') == '1') && !empty($prefillPassword);
+                            @endphp
+
+                            @if(request('verified') || session('auto_login') || $autoLogin)
+                                <div class="alert alert-success border-0 shadow-sm p-3 mb-3 rounded-3" id="verificationAutoLoginBanner" style="background: #ecfdf5; border-left: 4px solid #10b981 !important;">
+                                    <div class="d-flex align-items-center">
+                                        @if($autoLogin)
+                                            <div class="spinner-border spinner-border-sm text-success me-2" role="status" id="autoLoginSpinner"></div>
+                                        @else
+                                            <i class="ti ti-circle-check text-success fs-18 me-2"></i>
+                                        @endif
+                                        <div>
+                                            <strong class="text-success">Email Verified Successfully!</strong>
+                                            <div class="small text-muted" id="autoLoginNoticeText">
+                                                @if($autoLogin)
+                                                    Credentials pre-filled. Logging you in automatically...
+                                                @else
+                                                    Your email has been verified. Your credentials have been pre-filled below.
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
+
                             <div class="mb-3">
                                 <label class="col-form-label" for="emailInput">Email Address</label>
                                 <div class="position-relative">
                                     <span class="input-icon-addon">
                                         <i class="ti ti-mail"></i>
                                     </span>
-                                    <input id="emailInput" type="email" name="email" value="{{ old('email') }}"
+                                    <input id="emailInput" type="email" name="email" value="{{ old('email', $prefillEmail) }}"
                                         class="form-control @error('email') is-invalid @enderror" required />
                                     @error('email')
                                         <div class="invalid-feedback">{{ $message }}</div>
@@ -105,7 +140,7 @@
                             <div class="mb-3">
                                 <label class="col-form-label" for="passwordInput">Password</label>
                                 <div class="pass-group position-relative">
-                                    <input id="passwordInput" type="password" name="password"
+                                    <input id="passwordInput" type="password" name="password" value="{{ old('password', $prefillPassword) }}"
                                         class="pass-input form-control @error('password') is-invalid @enderror" required />
                                     <span class="ti toggle-password ti-eye-off" role="button"
                                         aria-label="Toggle password visibility" style="cursor:pointer;"></span>
@@ -201,6 +236,19 @@
             let resendTimer = null;
             let originalButtonText = '';
 
+            // Auto login after email verification
+            const shouldAutoLogin = @json((bool)$autoLogin);
+            const prefillEmail = @json($prefillEmail);
+            const prefillPassword = @json($prefillPassword);
+
+            if (shouldAutoLogin && prefillEmail && prefillPassword) {
+                setTimeout(function () {
+                    if ($('#emailInput').val() && $('#passwordInput').val()) {
+                        $form.submit();
+                    }
+                }, 700);
+            }
+
             // Check for CSRF error message from session storage after page reload
             if (typeof sessionStorage !== 'undefined') {
                 const csrfError = sessionStorage.getItem('csrf_error');
@@ -227,6 +275,20 @@
                     },
                     403: function(xhr) {
                         const res = xhr.responseJSON;
+                        if (res && res.is_vendor) {
+                            const errorMsg = res.error || 'Your account is registered as a vendor. Redirecting to Vendor Login...';
+                            $verificationAlertContainer.html(
+                                `<div class="alert alert-warning text-center fw-bold shadow-sm p-3">
+                                    <i class="ti ti-alert-triangle fs-20 me-1"></i> ${errorMsg}
+                                    <div class="mt-2"><a href="${res.redirect || '{{ route("superadmin.vendors.login") }}'}" class="btn btn-sm btn-primary">Go to Vendor Login</a></div>
+                                </div>`
+                            );
+                            showToast(errorMsg, 'warning');
+                            setTimeout(function() {
+                                window.location.href = res.redirect || '{{ route("superadmin.vendors.login") }}';
+                            }, 2000);
+                            return;
+                        }
                         const errorMsg = res?.error || res?.message || 'Access forbidden.';
                         showToast(errorMsg, 'error');
                         $verificationAlertContainer.html(
@@ -468,7 +530,20 @@
                                 $verificationAlertContainer.html(html);
                                 showToast(originalButtonText, 'warning');
                             } else if (xhr.status === 403) {
-                                // Forbidden errors (already handled above, but just in case)
+                                if (res && res.is_vendor) {
+                                    const errorMsg = res.error || 'Your account is registered as a vendor. Redirecting to Vendor Login...';
+                                    $verificationAlertContainer.html(
+                                        `<div class="alert alert-warning text-center fw-bold shadow-sm p-3">
+                                            <i class="ti ti-alert-triangle fs-20 me-1"></i> ${errorMsg}
+                                            <div class="mt-2"><a href="${res.redirect || '{{ route("superadmin.vendors.login") }}'}" class="btn btn-sm btn-primary">Go to Vendor Login</a></div>
+                                        </div>`
+                                    );
+                                    showToast(errorMsg, 'warning');
+                                    setTimeout(function() {
+                                        window.location.href = res.redirect || '{{ route("superadmin.vendors.login") }}';
+                                    }, 2000);
+                                    return;
+                                }
                                 errorMessage = res?.error || res?.message || 'Access forbidden. Please contact administrator.';
                                 $verificationAlertContainer.html(
                                     `<div class="alert alert-danger text-center">${errorMessage}</div>`

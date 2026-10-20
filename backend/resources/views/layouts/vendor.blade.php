@@ -119,6 +119,22 @@
         @include('layouts.vendor_header')
         @include('layouts.vendor_sidebar')
 
+        @if(session()->has('impersonated_by'))
+            <div class="alert alert-warning border-0 rounded-0 m-0 py-2 px-4 d-flex justify-content-between align-items-center shadow-sm" style="background: linear-gradient(90deg, #fff3cd 0%, #ffeeba 100%); border-bottom: 2px solid #ffd8a8 !important; z-index: 999; position: relative;">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="ti ti-alert-triangle text-warning-emphasis fs-4"></i>
+                    <span class="text-dark small">
+                        <strong>Superadmin Impersonation Mode:</strong> You are currently managing the vendor portal as <strong>{{ Auth::user()->name }}</strong> ({{ Auth::user()->vendor->company_name ?? 'Vendor' }}).
+                    </span>
+                </div>
+                <div>
+                    <a href="{{ route('vendor.leave_impersonation') }}" class="btn btn-sm btn-dark text-white rounded-pill px-3 py-1 shadow-sm fw-semibold">
+                        <i class="ti ti-arrow-back-up me-1"></i> Exit & Return to Superadmin
+                    </a>
+                </div>
+            </div>
+        @endif
+
         <!-- Page Content -->
         @yield('content')
         @include('layouts.footer')

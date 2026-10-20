@@ -40,7 +40,7 @@ class CheckRolesAuth
             if (session()->has('impersonated_by') && !$request->ajax() && !$request->expectsJson() && in_array('superadmin', $roles)) {
                 $originalUserId = session('impersonated_by');
                 Auth::loginUsingId($originalUserId);
-                session()->forget('impersonated_by');
+                session()->forget(['impersonated_by', 'is_vendor_impersonation', 'impersonated_box_slug']);
                 // Reload the current request with the restored superadmin user
                 return redirect($request->fullUrl());
             }

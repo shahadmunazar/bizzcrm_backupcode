@@ -93,10 +93,14 @@ Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
 Route::post('register', [AuthController::class, 'register'])->name('post.register');
 Route::get("search-country", [AuthController::class, 'SearchCountry'])->name('search.country');
+Route::get('/api/check-referral', [AuthController::class, 'checkReferralCode'])->name('check.referral');
 Route::post('/resend-verfication-email', [AuthController::class, 'resendverificationEmail'])->name('resend.verification');
 Route::post('/login', [AuthController::class, 'login'])->name('post.login');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::post('/cancel-api-logout', [AuthController::class, 'cancelApiLogout']);
+Route::match(['GET', 'HEAD'], '/session/ping', function () {
+    return response()->json(['status' => 'active']);
+})->middleware('auth')->name('session.ping');
 
 Route::get("/login-mobile", [AuthController::class, 'login_mobile'])->name('login.mobile');
 Route::post('/send-otp', [AuthController::class, 'sendOtp'])->name('send.otp');
@@ -173,12 +177,18 @@ Route::prefix('vendor-panel')->name('vendor.')->middleware(['auth'])->group(func
     Route::get('commission', [\App\Http\Controllers\VendorPanel\VendorDashboardController::class, 'commission'])->name('commission');
     Route::get('referrals', [\App\Http\Controllers\VendorPanel\VendorDashboardController::class, 'referrals'])->name('referrals');
     Route::get('referral_details/{id}', [\App\Http\Controllers\VendorPanel\VendorDashboardController::class, 'referral_details'])->name('referral_details');
+    Route::get('plans', [\App\Http\Controllers\VendorPanel\VendorDashboardController::class, 'plans'])->name('plans');
+    Route::get('share-referral-email', function () {
+        return redirect()->route('vendor.referrals');
+    });
+    Route::post('share-referral-email', [\App\Http\Controllers\VendorPanel\VendorDashboardController::class, 'shareReferralEmail'])->name('share_referral_email');
 
     // API Routes for AJAX loading
     Route::get('api/dashboard', [\App\Http\Controllers\VendorPanel\VendorDashboardController::class, 'api_dashboard'])->name('api.dashboard');
     Route::get('api/transaction', [\App\Http\Controllers\VendorPanel\VendorDashboardController::class, 'api_transaction'])->name('api.transaction');
     Route::get('api/referrals', [\App\Http\Controllers\VendorPanel\VendorDashboardController::class, 'api_referrals'])->name('api.referrals');
     Route::get('api/referral_details/{id}', [\App\Http\Controllers\VendorPanel\VendorDashboardController::class, 'api_referral_details'])->name('api.referral_details');
+    Route::get('leave-impersonation', [\App\Http\Controllers\SuperAdmin\VendorManagementController::class, 'leave_vendor_impersonation'])->name('leave_impersonation');
 });
 
 //  Multi-tenant routes with {box_slug}
@@ -219,6 +229,7 @@ Route::group(['prefix' => '{box_slug}', 'middleware' => ['auth']], function () {
         Route::get('target-api/templates/{id}', [TargetController::class, 'getTemplate']);
         Route::post('target-template/update/{id}', [TargetController::class, 'updateTemplate'])->name('target-template.update');
         Route::post('target-template/delete/{id}', [TargetController::class, 'deleteTemplate'])->name('target-template.delete');
+        Route::post('target-template/toggle-status/{id}', [TargetController::class, 'toggleStatus'])->name('target-template.toggle-status');
 
         Route::post('target-assignment/store', [TargetController::class, 'storeAssignment'])->name('target-assignment.store');
 
@@ -228,6 +239,8 @@ Route::group(['prefix' => '{box_slug}', 'middleware' => ['auth']], function () {
         Route::get('target-api/teams', [TargetController::class, 'getTeams'])->name('target-api.teams');
         Route::get('target-api/assignments', [TargetController::class, 'getAllAssignments'])->name('target-api.assignments');
         Route::get('target-api/my-assignments', [TargetController::class, 'getMyAssignments'])->name('target-api.my-assignments');
+        Route::get('target-api/top-performer', [TargetController::class, 'getTopPerformerData'])->name('target-api.top-performer');
+        Route::get('target-api/assignment-history/{id}', [TargetController::class, 'getAssignmentHistory'])->name('target-api.assignment-history');
         Route::get('my-target', [TargetController::class, 'myTarget'])->name('my-target');
         Route::get('team-targets', [TargetController::class, 'teamTargets'])->name('team-targets');
         
@@ -534,10 +547,21 @@ Route::group(['prefix' => '{box_slug}', 'middleware' => ['auth']], function () {
                 Route::post('{id}/approve', [\App\Http\Controllers\SuperAdmin\VendorManagementController::class, 'vendor_approve'])->name('superadmin.vendors.approve');
                 Route::post('{id}/reject', [\App\Http\Controllers\SuperAdmin\VendorManagementController::class, 'vendor_reject'])->name('superadmin.vendors.reject');
                 Route::post('{id}/target', [\App\Http\Controllers\SuperAdmin\VendorManagementController::class, 'vendor_update_target'])->name('superadmin.vendors.target');
+                Route::delete('{id}/target/{targetId}', [\App\Http\Controllers\SuperAdmin\VendorManagementController::class, 'vendor_delete_target'])->name('superadmin.vendors.target.delete');
+
+                // Vendor Commission Verification & Payout Routes
+                Route::post('commission/{commissionId}/status', [\App\Http\Controllers\SuperAdmin\VendorManagementController::class, 'update_commission_status'])->name('superadmin.vendors.commission.status');
 
                 // Vendor Percentages
                 Route::get('percentages', [\App\Http\Controllers\SuperAdmin\VendorPercentageController::class, 'index'])->name('superadmin.vendors.percentages');
                 Route::post('percentages', [\App\Http\Controllers\SuperAdmin\VendorPercentageController::class, 'store'])->name('superadmin.vendors.percentages.store');
+
+                // Vendor Impersonation / Direct Login
+                Route::get('{id}/impersonate', [\App\Http\Controllers\SuperAdmin\VendorManagementController::class, 'impersonate_vendor'])->name('superadmin.vendors.impersonate');
+                Route::get('leave-impersonation', [\App\Http\Controllers\SuperAdmin\VendorManagementController::class, 'leave_vendor_impersonation'])->name('superadmin.vendors.leave-impersonation');
+
+                // Vendor Referrals & Joined Users API
+                Route::get('api/{id}/referrals', [\App\Http\Controllers\SuperAdmin\VendorManagementController::class, 'vendor_referrals'])->name('superadmin.vendors.api.referrals');
             });
         }
     );
@@ -649,6 +673,7 @@ Route::group(['prefix' => '{box_slug}', 'middleware' => ['auth']], function () {
             });
 
             Route::get('dashboard', [AdminFrontendController::class, 'index'])->name('admin.dashboard');
+            Route::get('admin-dashboard/data', [AdminFrontendController::class, 'apiDashboardComplete'])->name('admin.dashboard.data');
             // Route::get('dashboard', [SuperadminFrontendController::class, 'index'])->name('superadmin.dashboard'); -- Moved to Superadmin Group
             Route::get('subscription-plan', [SubscriptionController::class, 'index'])->name('subscription.index');
             Route::post('subscription-plan/cancel', [SubscriptionController::class, 'cancel'])->name('subscription.cancel');

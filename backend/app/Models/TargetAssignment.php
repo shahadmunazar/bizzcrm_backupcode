@@ -30,4 +30,14 @@ class TargetAssignment extends Model
     {
         return $this->hasOne(PerformanceResult::class);
     }
+
+    public function department()
+    {
+        return $this->belongsTo(Department::class, 'department_id');
+    }
+
+    public function team()
+    {
+        return $this->belongsTo(Team::class, 'team_id');
+    }
 }

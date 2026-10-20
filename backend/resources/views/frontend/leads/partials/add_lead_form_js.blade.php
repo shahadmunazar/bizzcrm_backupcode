@@ -1,43 +1,60 @@
 @once
 @push('scripts')
 <script>
-    // Fetch currencies from RESTCountries API immediately
+    // Cache and load currencies (avoid re-fetching 1.4MB countries.json on every page load)
     if (typeof window.globalCurrencies === 'undefined') {
         window.globalCurrencies = [];
-        fetch("{{ asset('assets/json/countries.json') }}")
-            .then(res => res.json())
-            .then(data => {
-                const currencyMap = new Map();
-                data.forEach(country => {
-                    if (country.currencies && Object.keys(country.currencies).length > 0) {
-                        const code = Object.keys(country.currencies)[0];
-                        const currency = country.currencies[code];
-                        if (!currencyMap.has(code)) {
-                            currencyMap.set(code, {
-                                id: code,
-                                name: `${code} (${currency.symbol || code}) - ${currency.name}`
-                            });
+
+        function applyCurrencies(currenciesList) {
+            window.globalCurrencies = currenciesList;
+            $('select[name="currency"]').each(function() {
+                const $select = $(this);
+                if ($select.children('option').length <= 3) {
+                    const currentVal = $select.val();
+                    $select.empty().append('<option value="">Select Currency</option>');
+                    currenciesList.forEach(curr => {
+                        $select.append(`<option value="${curr.id}">${curr.name}</option>`);
+                    });
+                    $select.val(currentVal).trigger('change');
+                }
+            });
+        }
+
+        try {
+            const cached = localStorage.getItem('crm_currencies_list');
+            if (cached) {
+                applyCurrencies(JSON.parse(cached));
+            }
+        } catch (e) {
+            console.warn('Could not read cached currencies:', e);
+        }
+
+        if (!window.globalCurrencies || window.globalCurrencies.length === 0) {
+            fetch("{{ asset('assets/json/countries.json') }}")
+                .then(res => res.json())
+                .then(data => {
+                    const currencyMap = new Map();
+                    data.forEach(country => {
+                        if (country.currencies && Object.keys(country.currencies).length > 0) {
+                            const code = Object.keys(country.currencies)[0];
+                            const currency = country.currencies[code];
+                            if (!currencyMap.has(code)) {
+                                currencyMap.set(code, {
+                                    id: code,
+                                    name: `${code} (${currency.symbol || code}) - ${currency.name}`
+                                });
+                            }
                         }
-                    }
-                });
-                const currenciesList = Array.from(currencyMap.values());
-                currenciesList.sort((a, b) => a.name.localeCompare(b.name));
-                window.globalCurrencies = currenciesList;
-                
-                // Dynamically populate any existing selects
-                $('select[name="currency"]').each(function() {
-                    const $select = $(this);
-                    if ($select.children('option').length <= 3) {
-                        const currentVal = $select.val();
-                        $select.empty().append('<option value="">Select Currency</option>');
-                        currenciesList.forEach(curr => {
-                            $select.append(`<option value="${curr.id}">${curr.name}</option>`);
-                        });
-                        $select.val(currentVal).trigger('change');
-                    }
-                });
-            })
-            .catch(err => console.error('Error loading RESTCountries API:', err));
+                    });
+                    const currenciesList = Array.from(currencyMap.values());
+                    currenciesList.sort((a, b) => a.name.localeCompare(b.name));
+                    applyCurrencies(currenciesList);
+                    try {
+                        localStorage.setItem('crm_currencies_list', JSON.stringify(currenciesList));
+                    } catch (e) {}
+                })
+                .catch(err => console.error('Error loading RESTCountries API:', err));
+        }
     }
 
     function renderLeadForm(resData, isEdit = false) {
