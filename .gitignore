@@ -3,3 +3,7 @@ node_modules
 vendor
 .DS_Store
 .env
+*.log
+*.tsbuildinfo
+.phpunit.result.cache
+scratch/
